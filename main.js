@@ -39,6 +39,7 @@ const predictionSubtext = document.getElementById("prediction_subtext");
 const confidencePercent = document.getElementById("confidence_percent");
 const confidenceBar = document.getElementById("confidence_bar");
 const confidenceLabel = document.getElementById("confidence_label");
+const vocabGrid = document.getElementById("vocab_grid");
 
 // Chatbox Elements
 const chatMessages = document.getElementById("chat_messages");
@@ -312,6 +313,287 @@ function getFingerStates(landmarks) {
   };
 }
 
+// =============================================================================
+// 4. BEGINNER SIGN VOCABULARY DICTIONARY (20 WORDS)
+// =============================================================================
+const BEGINNER_VOCABULARY = [
+  {
+    key: "HELLO",
+    label: "Hello",
+    emoji: "👋",
+    hands: "1H",
+    handsCount: 1,
+    pointsCount: 21,
+    tip: "Open palm waving facing forward",
+    speech: "Hello! Welcome to citizen services.",
+    response: "Hello! Welcome to Counter #04. How can I assist you with your services today?",
+  },
+  {
+    key: "THANK_YOU",
+    label: "Thank You",
+    emoji: "🙏",
+    hands: "2H",
+    handsCount: 2,
+    pointsCount: 42,
+    tip: "Both palms touching together in prayer",
+    speech: "Thank you very much.",
+    response: "You are very welcome! It is our honor to serve you.",
+  },
+  {
+    key: "YES",
+    label: "Yes",
+    emoji: "👍",
+    hands: "1H",
+    handsCount: 1,
+    pointsCount: 21,
+    tip: "Thumb pointing upright (thumbs up)",
+    speech: "Yes, confirmed.",
+    response: "Understood: Confirmed. Proceeding with your application.",
+  },
+  {
+    key: "NO",
+    label: "No",
+    emoji: "👎",
+    hands: "1H",
+    handsCount: 1,
+    pointsCount: 21,
+    tip: "Thumb pointing downward (thumbs down)",
+    speech: "No, decline.",
+    response: "Noted: Cancelled. We will not proceed with this action.",
+  },
+  {
+    key: "PLEASE",
+    label: "Please",
+    emoji: "🤲",
+    hands: "2H",
+    handsCount: 2,
+    pointsCount: 42,
+    tip: "Both open cupped palms held gently upward",
+    speech: "Please assist me.",
+    response: "Certainly! We are glad to assist you with every step.",
+  },
+  {
+    key: "HELP",
+    label: "Help",
+    emoji: "🆘",
+    hands: "2H",
+    handsCount: 2,
+    pointsCount: 42,
+    tip: "Fist resting on flat palm of other hand",
+    speech: "I need assistance.",
+    response: "Assistance alert acknowledged. A public service officer is attending to you.",
+  },
+  {
+    key: "GOOD",
+    label: "Good",
+    emoji: "👌",
+    hands: "1H",
+    handsCount: 1,
+    pointsCount: 21,
+    tip: "Thumb and index touching in circle (OK)",
+    speech: "Very good.",
+    response: "Great! Glad to hear everything is going smoothly.",
+  },
+  {
+    key: "BAD",
+    label: "Bad",
+    emoji: "⛔",
+    hands: "1H",
+    handsCount: 1,
+    pointsCount: 21,
+    tip: "Hand facing downward with fingers lowered",
+    speech: "There is an issue.",
+    response: "We apologize for the inconvenience. Let us resolve this for you.",
+  },
+  {
+    key: "LOVE",
+    label: "I Love You",
+    emoji: "🤟",
+    hands: "1H",
+    handsCount: 1,
+    pointsCount: 21,
+    tip: "Thumb, index, and pinky extended (ASL ILY)",
+    speech: "I love you.",
+    response: "Much love, warmth, and respect right back to you! 🤟",
+  },
+  {
+    key: "HEART",
+    label: "Heart",
+    emoji: "❤️",
+    hands: "2H",
+    handsCount: 2,
+    pointsCount: 42,
+    tip: "Thumbs and index fingertips joined in heart shape",
+    speech: "Kindness from the heart.",
+    response: "Heartfelt kindness received! Wishing you peace and happiness.",
+  },
+  {
+    key: "STOP",
+    label: "Stop",
+    emoji: "🛑",
+    hands: "2H",
+    handsCount: 2,
+    pointsCount: 42,
+    tip: "Both wrists crossed in front forming an X",
+    speech: "Stop and pause.",
+    response: "Process halted immediately. Take your time to review.",
+  },
+  {
+    key: "SORRY",
+    label: "Sorry",
+    emoji: "🙇",
+    hands: "1H",
+    handsCount: 1,
+    pointsCount: 21,
+    tip: "Closed fist held firmly over chest",
+    speech: "I am sorry.",
+    response: "No worries at all! Everything is completely fine.",
+  },
+  {
+    key: "FRIEND",
+    label: "Friend",
+    emoji: "🤝",
+    hands: "2H",
+    handsCount: 2,
+    pointsCount: 42,
+    tip: "Both index fingers hooked or wrists linked",
+    speech: "We are friends.",
+    response: "Welcome, dear friend! You are always supported and valued here.",
+  },
+  {
+    key: "MORE",
+    label: "More",
+    emoji: "🤏",
+    hands: "2H",
+    handsCount: 2,
+    pointsCount: 42,
+    tip: "Fingertips of both hands touching together",
+    speech: "I would like more.",
+    response: "Displaying additional options for your request.",
+  },
+  {
+    key: "WATER",
+    label: "Water",
+    emoji: "💧",
+    hands: "1H",
+    handsCount: 1,
+    pointsCount: 21,
+    tip: "W sign: Index, middle, and ring extended upright",
+    speech: "Drinking water.",
+    response: "Drinking water dispenser is located next to Counter #04.",
+  },
+  {
+    key: "FOOD",
+    label: "Food",
+    emoji: "🍽️",
+    hands: "2H",
+    handsCount: 2,
+    pointsCount: 42,
+    tip: "Both open palms held side by side facing upward",
+    speech: "Food and dining.",
+    response: "Community dining and cafeteria facilities are on Level 1.",
+  },
+  {
+    key: "WELCOME",
+    label: "Welcome",
+    emoji: "👐",
+    hands: "2H",
+    handsCount: 2,
+    pointsCount: 42,
+    tip: "Both open palms spread wide welcoming forward",
+    speech: "Welcome!",
+    response: "A very warm welcome to Counter #04! How can I assist you?",
+  },
+  {
+    key: "PEACE",
+    label: "Peace",
+    emoji: "✌️",
+    hands: "1H",
+    handsCount: 1,
+    pointsCount: 21,
+    tip: "V sign: Index and middle fingers extended",
+    speech: "Peace to you.",
+    response: "Peace and harmony to you and your community!",
+  },
+  {
+    key: "TOGETHER",
+    label: "Together",
+    emoji: "👥",
+    hands: "2H",
+    handsCount: 2,
+    pointsCount: 42,
+    tip: "Both fists touching side by side",
+    speech: "We work together.",
+    response: "Together we accomplish more! United in service.",
+  },
+  {
+    key: "DONE",
+    label: "Done",
+    emoji: "✅",
+    hands: "2H",
+    handsCount: 2,
+    pointsCount: 42,
+    tip: "Dual thumbs up / palms spread outward",
+    speech: "Finished and done.",
+    response: "Application marked as completed! Have an excellent day ahead.",
+  },
+];
+
+function renderVocabDeck() {
+  if (!vocabGrid) return;
+  vocabGrid.innerHTML = "";
+
+  BEGINNER_VOCABULARY.forEach((item) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "vocab-chip";
+    chip.setAttribute("data-key", item.key);
+    chip.title = `${item.label} (${item.hands}) - ${item.tip}`;
+
+    chip.innerHTML = `
+      <span class="vocab-chip-emoji">${item.emoji}</span>
+      <span class="vocab-chip-label">${item.label}</span>
+      <span class="vocab-chip-tag">${item.hands}</span>
+    `;
+
+    chip.addEventListener("click", () => {
+      const match = buildVocabMatch(item.key, 0.99);
+      if (match) {
+        highlightVocabChip(item.key);
+        handleGestureCalculation(match, match.handsCount, performance.now());
+        if (isTtsEnabled) {
+          speakText(`${item.label}. ${item.tip}`);
+        }
+      }
+    });
+
+    vocabGrid.appendChild(chip);
+  });
+}
+
+function highlightVocabChip(vocabKey) {
+  if (!vocabGrid) return;
+  const chips = vocabGrid.querySelectorAll(".vocab-chip");
+  chips.forEach((c) => {
+    if (c.getAttribute("data-key") === vocabKey) {
+      c.classList.add("active");
+      c.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    } else {
+      c.classList.remove("active");
+    }
+  });
+}
+
+function buildVocabMatch(key, confidence) {
+  const item = BEGINNER_VOCABULARY.find((v) => v.key === key);
+  if (!item) return null;
+  return {
+    ...item,
+    confidence,
+    fullText: `${item.emoji} ${item.label} (${item.tip})`,
+  };
+}
+
 function calculateRealTimeGesture(handsLandmarks) {
   if (!handsLandmarks || handsLandmarks.length === 0) {
     return null;
@@ -321,7 +603,7 @@ function calculateRealTimeGesture(handsLandmarks) {
   const h1 = getFingerStates(handsLandmarks[0]);
 
   // ---------------------------------------------------------------------------
-  // A. TWO-HAND GESTURES (42 Points)
+  // A. TWO-HAND BEGINNER VOCABULARY (42 Points)
   // ---------------------------------------------------------------------------
   if (handsCount >= 2) {
     const h2 = getFingerStates(handsLandmarks[1]);
@@ -335,7 +617,23 @@ function calculateRealTimeGesture(handsLandmarks) {
     const allH1Up = h1.indexExt && h1.middleExt && h1.ringExt;
     const allH2Up = h2.indexExt && h2.middleExt && h2.ringExt;
 
-    // 1. NAMASTE / PRAYER / THANK YOU (42 pts)
+    // 1. HEART (42 pts)
+    if (
+      thumbTipsDist < 0.10 &&
+      indexTipsDist < 0.11 &&
+      !h1.pinkyExt &&
+      !h2.pinkyExt &&
+      wristDist < 0.34
+    ) {
+      return buildVocabMatch("HEART", 0.98);
+    }
+
+    // 2. STOP (42 pts - Crossed Wrists X)
+    if (wristDist < 0.13 && indexTipsDist > 0.22) {
+      return buildVocabMatch("STOP", 0.96);
+    }
+
+    // 3. THANK YOU / NAMASTE (42 pts - Both palms touching upright prayer)
     if (
       allH1Up &&
       allH2Up &&
@@ -344,67 +642,41 @@ function calculateRealTimeGesture(handsLandmarks) {
       middleTipsDist < 0.14 &&
       thumbTipsDist < 0.16
     ) {
-      return {
-        key: "NAMASTE",
-        label: "Namaste",
-        emoji: "🙏",
-        fullText: "🙏 Namaste (Thank You)",
-        confidence: 0.98,
-        handsCount: 2,
-        pointsCount: 42,
-        response: "Namaste! Thank you for visiting Counter #04. How can I assist you with your civic application today?",
-      };
+      return buildVocabMatch("THANK_YOU", 0.98);
     }
 
-    // 2. HEART SIGN (42 pts)
+    // 4. FRIEND (42 pts - Index fingers hooked / close, other fingers curled)
     if (
-      thumbTipsDist < 0.10 &&
-      indexTipsDist < 0.11 &&
+      indexTipsDist < 0.10 &&
+      h1.indexExt &&
+      h2.indexExt &&
+      !h1.ringExt &&
+      !h2.ringExt &&
       !h1.pinkyExt &&
-      !h2.pinkyExt &&
-      wristDist < 0.34
+      !h2.pinkyExt
     ) {
-      return {
-        key: "HEART",
-        label: "Heart",
-        emoji: "❤️",
-        fullText: "❤️ Heart (Kindness / Love)",
-        confidence: 0.96,
-        handsCount: 2,
-        pointsCount: 42,
-        response: "Sending love and warmth back to you! ❤️ How can we help you today?",
-      };
+      return buildVocabMatch("FRIEND", 0.95);
     }
 
-    // 3. CLAPPING (42 pts)
-    if (wristDist < 0.18 && middleTipsDist < 0.10 && h1.middleExt && h2.middleExt) {
-      return {
-        key: "CLAP",
-        label: "Clapping",
-        emoji: "👏",
-        fullText: "👏 Clapping (Applause / Celebration)",
-        confidence: 0.95,
-        handsCount: 2,
-        pointsCount: 42,
-        response: "Thank you for the applause! It is our honor to serve you.",
-      };
+    // 5. HELP (42 pts - One fist resting on flat palm of other hand)
+    const h1FlatH2Fist = allH1Up && !h2.indexExt && !h2.middleExt;
+    const h2FlatH1Fist = allH2Up && !h1.indexExt && !h1.middleExt;
+    if ((h1FlatH2Fist || h2FlatH1Fist) && wristDist < 0.28) {
+      return buildVocabMatch("HELP", 0.95);
     }
 
-    // 4. STOP / CROSSED WRISTS X (42 pts)
-    if (wristDist < 0.13 && indexTipsDist > 0.22) {
-      return {
-        key: "STOP_CROSS",
-        label: "Stop",
-        emoji: "🙅",
-        fullText: "🙅 Stop / Crossed Arms (No / Pause)",
-        confidence: 0.94,
-        handsCount: 2,
-        pointsCount: 42,
-        response: "Action halted. Let me know whenever you would like to proceed.",
-      };
+    // 6. MORE (42 pts - Both hands pinched, tips touching)
+    if (
+      indexTipsDist < 0.09 &&
+      thumbTipsDist < 0.09 &&
+      !h1.ringExt &&
+      !h2.ringExt &&
+      wristDist < 0.25
+    ) {
+      return buildVocabMatch("MORE", 0.94);
     }
 
-    // 5. TOGETHER / UNITY (Both fists pressed together, 42 pts)
+    // 7. TOGETHER (42 pts - Both fists touching)
     if (
       wristDist < 0.25 &&
       !h1.indexExt &&
@@ -412,83 +684,63 @@ function calculateRealTimeGesture(handsLandmarks) {
       !h2.indexExt &&
       !h2.middleExt
     ) {
-      return {
-        key: "TOGETHER",
-        label: "Together",
-        emoji: "🤝",
-        fullText: "🤝 Together (Unity / Teamwork)",
-        confidence: 0.93,
-        handsCount: 2,
-        pointsCount: 42,
-        response: "Stronger together! Collaborating to solve your citizen service inquiry.",
-      };
+      return buildVocabMatch("TOGETHER", 0.94);
     }
 
-    // 6. OPEN BOOK / READ (42 pts)
-    if (pinkyTipsDist < 0.16 && wristDist < 0.26 && allH1Up && allH2Up) {
-      return {
-        key: "OPEN_BOOK",
-        label: "Open Book",
-        emoji: "📖",
-        fullText: "📖 Open Book (Study / Guideline)",
-        confidence: 0.94,
-        handsCount: 2,
-        pointsCount: 42,
-        response: "Opening documentation and service guidelines for your reference.",
-      };
-    }
-
-    // 7. DOUBLE THUMBS UP (42 pts)
+    // 8. DONE (42 pts - Dual thumbs up)
     const h1ThumbUp = h1.thumbExt && !h1.indexExt && !h1.middleExt && !h1.ringExt && !h1.pinkyExt && h1.thumbTip.y < h1.thumbMcp.y;
     const h2ThumbUp = h2.thumbExt && !h2.indexExt && !h2.middleExt && !h2.ringExt && !h2.pinkyExt && h2.thumbTip.y < h2.thumbMcp.y;
     if (h1ThumbUp && h2ThumbUp) {
-      return {
-        key: "DOUBLE_THUMBS_UP",
-        label: "Dual Thumbs Up",
-        emoji: "👍👍",
-        fullText: "👍👍 Double Thumbs Up (Great / Done)",
-        confidence: 0.98,
-        handsCount: 2,
-        pointsCount: 42,
-        response: "Fantastic! Your confirmation has been recorded successfully.",
-      };
+      return buildVocabMatch("DONE", 0.98);
     }
 
-    // 8. DOUBLE PEACE (42 pts)
-    const h1Peace = h1.indexExt && h1.middleExt && !h1.ringExt && !h1.pinkyExt;
-    const h2Peace = h2.indexExt && h2.middleExt && !h2.ringExt && !h2.pinkyExt;
-    if (h1Peace && h2Peace) {
-      return {
-        key: "DOUBLE_PEACE",
-        label: "Dual Peace",
-        emoji: "✌️✌️",
-        fullText: "✌️✌️ Double Peace (Celebration)",
-        confidence: 0.98,
-        handsCount: 2,
-        pointsCount: 42,
-        response: "Double peace to you! Wishing you an inspiring day.",
-      };
+    // 9. FOOD (42 pts - Both open palms held upward side-by-side like plate/book)
+    if (
+      pinkyTipsDist < 0.16 &&
+      wristDist < 0.26 &&
+      allH1Up &&
+      allH2Up &&
+      h1.indexTip.y > h1.wrist.y - 0.2
+    ) {
+      return buildVocabMatch("FOOD", 0.94);
     }
 
-    // 9. WELCOME / OPEN ARMS (42 pts)
+    // 10. PLEASE (42 pts - Both open palms cupped together gently)
+    if (allH1Up && allH2Up && wristDist < 0.25 && indexTipsDist < 0.20) {
+      return buildVocabMatch("PLEASE", 0.93);
+    }
+
+    // 11. WELCOME (42 pts - Both open palms spread wide welcoming)
     if (allH1Up && allH2Up && h1.pinkyExt && h2.pinkyExt && wristDist > 0.32) {
-      return {
-        key: "WELCOME",
-        label: "Welcome",
-        emoji: "👐",
-        fullText: "👐 Welcome (Open Arms / Ready)",
-        confidence: 0.95,
-        handsCount: 2,
-        pointsCount: 42,
-        response: "A very warm welcome to Counter #04! How can I assist you today?",
-      };
+      return buildVocabMatch("WELCOME", 0.95);
     }
   }
 
   // ---------------------------------------------------------------------------
-  // B. SINGLE-HAND GESTURES (21 Points)
+  // B. SINGLE-HAND BEGINNER VOCABULARY (21 Points)
   // ---------------------------------------------------------------------------
-  // THUMBS UP
+  // 12. I LOVE YOU (ASL ILY - Thumb + Index + Pinky)
+  if (h1.thumbExt && h1.indexExt && !h1.middleExt && !h1.ringExt && h1.pinkyExt) {
+    return buildVocabMatch("LOVE", 0.97);
+  }
+
+  // 13. GOOD (OK Sign - Thumb and Index circle)
+  const okDist = dist2D(h1.thumbTip, h1.indexTip);
+  if (okDist < 0.06 && h1.middleExt && h1.ringExt && h1.pinkyExt) {
+    return buildVocabMatch("GOOD", 0.96);
+  }
+
+  // 14. WATER (W sign - Index + Middle + Ring upright)
+  if (h1.indexExt && h1.middleExt && h1.ringExt && !h1.pinkyExt) {
+    return buildVocabMatch("WATER", 0.95);
+  }
+
+  // 15. PEACE (V sign - Index + Middle upright)
+  if (h1.indexExt && h1.middleExt && !h1.ringExt && !h1.pinkyExt) {
+    return buildVocabMatch("PEACE", 0.96);
+  }
+
+  // 16. YES (Thumb Up)
   if (
     h1.thumbExt &&
     !h1.indexExt &&
@@ -497,19 +749,10 @@ function calculateRealTimeGesture(handsLandmarks) {
     !h1.pinkyExt &&
     h1.thumbTip.y < h1.thumbMcp.y
   ) {
-    return {
-      key: "THUMBS_UP",
-      label: "Thumbs Up",
-      emoji: "👍",
-      fullText: "👍 Thumbs Up (Yes / Confirmed)",
-      confidence: 0.97,
-      handsCount: 1,
-      pointsCount: 21,
-      response: "Understood: Confirmed / Yes.",
-    };
+    return buildVocabMatch("YES", 0.97);
   }
 
-  // THUMBS DOWN
+  // 17. NO (Thumb Down)
   if (
     h1.thumbExt &&
     !h1.indexExt &&
@@ -518,129 +761,26 @@ function calculateRealTimeGesture(handsLandmarks) {
     !h1.pinkyExt &&
     h1.thumbTip.y > h1.thumbMcp.y + 0.05
   ) {
-    return {
-      key: "THUMBS_DOWN",
-      label: "Thumbs Down",
-      emoji: "👎",
-      fullText: "👎 Thumbs Down (No / Decline)",
-      confidence: 0.95,
-      handsCount: 1,
-      pointsCount: 21,
-      response: "Understood: Cancelled / No.",
-    };
+    return buildVocabMatch("NO", 0.95);
   }
 
-  // PEACE / VICTORY (V)
-  if (h1.indexExt && h1.middleExt && !h1.ringExt && !h1.pinkyExt) {
-    return {
-      key: "PEACE",
-      label: "Peace",
-      emoji: "✌️",
-      fullText: "✌️ Peace (Victory / V)",
-      confidence: 0.96,
-      handsCount: 1,
-      pointsCount: 21,
-      response: "Peace to you!",
-    };
-  }
-
-  // I LOVE YOU (ILY in ASL)
-  if (h1.thumbExt && h1.indexExt && !h1.middleExt && !h1.ringExt && h1.pinkyExt) {
-    return {
-      key: "I_LOVE_YOU",
-      label: "I Love You",
-      emoji: "🤟",
-      fullText: "🤟 I Love You (ASL ILY)",
-      confidence: 0.96,
-      handsCount: 1,
-      pointsCount: 21,
-      response: "Much love and respect to you! 🤟",
-    };
-  }
-
-  // ROCK ON (Horns)
-  if (!h1.thumbExt && h1.indexExt && !h1.middleExt && !h1.ringExt && h1.pinkyExt) {
-    return {
-      key: "ROCK_ON",
-      label: "Rock On",
-      emoji: "🤘",
-      fullText: "🤘 Rock On (Horns)",
-      confidence: 0.94,
-      handsCount: 1,
-      pointsCount: 21,
-      response: "Rock on! Energized and ready to help.",
-    };
-  }
-
-  // OK SIGN
-  const okDist = dist2D(h1.thumbTip, h1.indexTip);
-  if (okDist < 0.06 && h1.middleExt && h1.ringExt && h1.pinkyExt) {
-    return {
-      key: "OK",
-      label: "OK",
-      emoji: "👌",
-      fullText: "👌 OK (Perfect / Agreed)",
-      confidence: 0.95,
-      handsCount: 1,
-      pointsCount: 21,
-      response: "Everything is OK and confirmed.",
-    };
-  }
-
-  // POINTING
-  if (h1.indexExt && !h1.middleExt && !h1.ringExt && !h1.pinkyExt) {
-    return {
-      key: "POINTING",
-      label: "Pointing",
-      emoji: "👉",
-      fullText: "👉 Pointing (Look / Attention)",
-      confidence: 0.93,
-      handsCount: 1,
-      pointsCount: 21,
-      response: "Noted attention direction. Looking into this now.",
-    };
-  }
-
-  // CALL ME
-  if (h1.thumbExt && !h1.indexExt && !h1.middleExt && !h1.ringExt && h1.pinkyExt) {
-    return {
-      key: "CALL_ME",
-      label: "Call Me",
-      emoji: "🤙",
-      fullText: "🤙 Call Me (Contact)",
-      confidence: 0.94,
-      handsCount: 1,
-      pointsCount: 21,
-      response: "We have your contact on file and will notify you.",
-    };
-  }
-
-  // OPEN PALM / HELLO
+  // 18. HELLO (Open Palm Wave)
   if (h1.thumbExt && h1.indexExt && h1.middleExt && h1.ringExt && h1.pinkyExt) {
-    return {
-      key: "HELLO",
-      label: "Hello",
-      emoji: "✋",
-      fullText: "✋ Hello (Greetings / Wave)",
-      confidence: 0.93,
-      handsCount: 1,
-      pointsCount: 21,
-      response: "Hello! Welcome to the civic accessibility counter.",
-    };
+    return buildVocabMatch("HELLO", 0.94);
   }
 
-  // FIST
+  // 19. BAD (Hand turned downward)
+  if (
+    h1.indexTip.y > h1.wrist.y &&
+    h1.middleTip.y > h1.wrist.y &&
+    !h1.thumbExt
+  ) {
+    return buildVocabMatch("BAD", 0.92);
+  }
+
+  // 20. SORRY (Closed Fist over chest)
   if (!h1.indexExt && !h1.middleExt && !h1.ringExt && !h1.pinkyExt) {
-    return {
-      key: "FIST",
-      label: "Fist",
-      emoji: "✊",
-      fullText: "✊ Fist (Solidarity / Ready)",
-      confidence: 0.90,
-      handsCount: 1,
-      pointsCount: 21,
-      response: "Standing strong and ready for your request.",
-    };
+    return buildVocabMatch("SORRY", 0.92);
   }
 
   return null;
@@ -701,10 +841,10 @@ function renderDualHandSkeletons(handsLandmarks) {
   const h = canvas.height;
 
   handsLandmarks.forEach((hand, idx) => {
-    // Hand 1: Cyber Cyan & Emerald; Hand 2: Sunset Amber & Coral
+    // Hand 1: Warm Tangerine (#F26522) & White (#FFFFFF); Hand 2: Light Gray (#EBEBEB) & Orange (#F26522)
     const isHand1 = idx === 0;
-    const connectorColor = isHand1 ? "#06b6d4" : "#f59e0b";
-    const landmarkColor = isHand1 ? "#10b981" : "#facc15";
+    const connectorColor = isHand1 ? "#F26522" : "#EBEBEB";
+    const landmarkColor = isHand1 ? "#FFFFFF" : "#F26522";
 
     drawingUtils.drawConnectors(hand, HandLandmarkerClass.HAND_CONNECTIONS, {
       color: connectorColor,
@@ -712,7 +852,7 @@ function renderDualHandSkeletons(handsLandmarks) {
     });
     drawingUtils.drawLandmarks(hand, {
       color: landmarkColor,
-      fillColor: "#ffffff",
+      fillColor: "#FFFFFF",
       lineWidth: 1.5,
       radius: 4,
     });
@@ -725,11 +865,11 @@ function renderDualHandSkeletons(handsLandmarks) {
 
       canvasCtx.save();
       canvasCtx.font = "bold 11px 'JetBrains Mono', monospace";
-      const labelText = isHand1 ? "HAND 1: CYAN (21 pts)" : "HAND 2: AMBER (21 pts)";
+      const labelText = isHand1 ? "HAND 1: TANGERINE (21 pts)" : "HAND 2: WHITE (21 pts)";
       const metrics = canvasCtx.measureText(labelText);
       const padding = 5;
 
-      canvasCtx.fillStyle = "rgba(10, 16, 26, 0.85)";
+      canvasCtx.fillStyle = "rgba(26, 26, 26, 0.9)";
       canvasCtx.strokeStyle = connectorColor;
       canvasCtx.lineWidth = 1;
       canvasCtx.beginPath();
@@ -838,21 +978,22 @@ function handleGestureCalculation(gestureObj, handsCount, now) {
     resetGestureStaging();
     predictionDisplay.textContent = "…";
     predictionDisplay.classList.remove("empty");
-    predictionSubtext.textContent = handsCount >= 2 ? "Calculating dual-hand gesture..." : "Calculating single-hand gesture...";
+    predictionSubtext.textContent = handsCount >= 2 ? "Calculating dual-hand vocabulary..." : "Calculating single-hand vocabulary...";
     return;
   }
 
   activeGestureObj = gestureObj;
+  highlightVocabChip(gestureObj.key);
 
   // Update Hero Card
   predictionDisplay.textContent = `${gestureObj.emoji} ${gestureObj.label}`;
   predictionDisplay.classList.remove("empty");
-  predictionSubtext.textContent = `${gestureObj.fullText} • ${gestureObj.handsCount} Hands (${gestureObj.pointsCount} points)`;
+  predictionSubtext.textContent = `${gestureObj.label} • ${gestureObj.tip || gestureObj.fullText} (${gestureObj.pointsCount} pts)`;
 
   const confPercent = Math.round(gestureObj.confidence * 100);
   confidencePercent.textContent = `${confPercent}%`;
   confidenceBar.style.width = `${confPercent}%`;
-  confidenceLabel.textContent = gestureObj.handsCount === 2 ? "Dual-Hand Accuracy" : "Single-Hand Accuracy";
+  confidenceLabel.textContent = gestureObj.handsCount === 2 ? "Dual-Hand Accuracy (42 pts)" : "Single-Hand Accuracy (21 pts)";
 
   // Real-Time Staging & Auto-Send Buffer
   gestureStagingBar.classList.add("active");
@@ -860,13 +1001,13 @@ function handleGestureCalculation(gestureObj, handsCount, now) {
   stagingConfBadge.textContent = `${confPercent}%`;
 
   if (stagingGestureKey !== gestureObj.key) {
-    // New gesture recognized, start hold timer
+    // New vocabulary word recognized, start hold timer
     stagingGestureKey = gestureObj.key;
     stagingStartTime = now;
     stagingProgressFill.style.width = "0%";
     stagingStatusText.textContent = isAutoSendEnabled ? "Hold steady to send..." : "Ready to Send";
   } else {
-    // Same gesture held
+    // Same vocabulary word held
     const elapsed = now - stagingStartTime;
     const progress = Math.min(100, Math.round((elapsed / AUTO_SEND_HOLD_MS) * 100));
     stagingProgressFill.style.width = `${progress}%`;
@@ -897,6 +1038,7 @@ function resetGestureStaging() {
   gestureStagingBar.classList.remove("active");
   stagingGestureName.textContent = "Waiting for sign...";
   stagingConfBadge.textContent = "--%";
+  highlightVocabChip(null);
 }
 
 // =============================================================================
@@ -906,17 +1048,17 @@ function commitGestureToChat(gestureObj) {
   const timestamp = new Date().toLocaleTimeString("en-US", { hour12: false });
   const pointsBadge = gestureObj.handsCount === 2 ? "2 Hands • 42 Points" : "1 Hand • 21 Points";
 
-  // 1. Post Signer message to Chatbox
+  // 1. Post Signer vocabulary message to Chatbox
   addChatMessage({
     sender: "You (Signer)",
-    text: gestureObj.fullText,
-    meta: `${pointsBadge} • ${timestamp} • ${Math.round(gestureObj.confidence * 100)}% Conf`,
+    text: `${gestureObj.emoji} ${gestureObj.label}`,
+    meta: `Vocabulary: ${gestureObj.label} • ${pointsBadge} • ${timestamp} • ${Math.round(gestureObj.confidence * 100)}% Match`,
     isUser: true,
   });
 
   // Speak aloud if TTS enabled
   if (isTtsEnabled) {
-    speakText(gestureObj.label);
+    speakText(gestureObj.speech || gestureObj.label);
   }
 
   // 2. Post AI Assistant response after a brief natural pause (400ms)
@@ -1217,6 +1359,7 @@ async function bootstrap() {
   console.log("[*] Initializing Dual-Hand (42 Points) Sign Language Terminal...");
   startKioskClock();
   initKioskEventListeners();
+  renderVocabDeck();
 
   const visionReady = await initMediaPipeVision();
   if (visionReady) {
