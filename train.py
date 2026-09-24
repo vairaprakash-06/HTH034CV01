@@ -54,14 +54,18 @@ def load_dataset(csv_path: str) -> Tuple[np.ndarray, np.ndarray, LabelEncoder]:
     # First column is the target label (y)
     y_raw = df.iloc[:, 0].astype(str).values
 
-    # Remaining columns are the 63 landmark features (X)
+    # Remaining columns are the landmark features (X)
     X = df.iloc[:, 1:].values.astype(np.float32)
 
-    if X.shape[1] != 63:
+    num_features = X.shape[1]
+    if num_features not in (63, 126) and num_features % 3 != 0:
         raise ValueError(
-            f"Expected 63 feature columns in '{csv_path}', but found {X.shape[1]}.\n"
-            f"Each hand landmark sample must contain 21 3D coordinates (x, y, z)."
+            f"Expected 63 feature columns (21 keypoints) or 126 feature columns (42 keypoints) in '{csv_path}', but found {num_features}.\n"
+            f"Each hand landmark sample must contain 3D coordinates (x, y, z)."
         )
+
+    points_per_sample = num_features // 3
+    print(f"[*] Dataset feature dimension: {num_features} columns ({points_per_sample} 3D landmarks)")
 
     # Encode string labels into numerical categories
     label_encoder = LabelEncoder()

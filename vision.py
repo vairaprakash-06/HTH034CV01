@@ -75,6 +75,31 @@ def extract_landmarks(hand_landmarks) -> np.ndarray:
     return np.array(coords, dtype=np.float32)
 
 
+def extract_dual_landmarks(hand_landmarks_list, max_hands: int = 2) -> np.ndarray:
+    """
+    Extracts (x, y, z) coordinates for up to 2 hands (42 points total = 126 floats).
+    - If 2 hands are detected: 21 points for Hand 1 + 21 points for Hand 2 = 42 points.
+    - If 1 hand is detected: 21 points for Hand 1 + 21 zeroed points for Hand 2 = 42 points.
+    - If 0 hands: 42 zeroed points (126 floats).
+
+    Returns:
+        np.ndarray: 1D array of shape (126,) with dtype float32.
+    """
+    total_features = max_hands * 21 * 3  # 126 floats
+    features = np.zeros(total_features, dtype=np.float32)
+
+    if not hand_landmarks_list:
+        return features
+
+    for h_idx in range(min(len(hand_landmarks_list), max_hands)):
+        hand = hand_landmarks_list[h_idx]
+        single_hand_feats = extract_landmarks(hand)
+        start = h_idx * 63
+        features[start : start + 63] = single_hand_feats
+
+    return features
+
+
 class SignLanguageHandDetector:
     """
     High-performance Hand Detector with dual-engine support:
@@ -142,12 +167,20 @@ class SignLanguageHandDetector:
 
     def draw_landmarks_on_frame(self, frame_bgr: np.ndarray, hand_landmarks_list) -> None:
         """
-        Draws the 21 landmarks and hand connections on the given frame in-place.
+        Draws the 21 landmarks per hand with distinct styling for Hand 1 vs Hand 2.
         """
         if not hand_landmarks_list:
             return
 
-        for hand_landmarks in hand_landmarks_list:
+        h, w, _ = frame_bgr.shape
+        colors = [
+            ((255, 200, 0), (0, 255, 128)),   # Hand 1: Cyan connections, Emerald joints
+            ((0, 165, 255), (0, 255, 255)),   # Hand 2: Sunset Amber connections, Yellow joints
+        ]
+
+        for idx, hand_landmarks in enumerate(hand_landmarks_list):
+            conn_color, pt_color = colors[idx % len(colors)]
+
             if self.use_tasks_api:
                 self.drawing_utils.draw_landmarks(
                     frame_bgr,
@@ -155,12 +188,8 @@ class SignLanguageHandDetector:
                     self.connections
                 )
             else:
-                if self.mp_drawing_styles:
-                    landmark_style = self.mp_drawing_styles.get_default_hand_landmarks_style()
-                    connection_style = self.mp_drawing_styles.get_default_hand_connections_style()
-                else:
-                    landmark_style = self.mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=2)
-                    connection_style = self.mp_drawing.DrawingSpec(color=(0, 0, 255), thickness=2, circle_radius=2)
+                landmark_style = self.mp_drawing.DrawingSpec(color=pt_color, thickness=2, circle_radius=3)
+                connection_style = self.mp_drawing.DrawingSpec(color=conn_color, thickness=2, circle_radius=2)
 
                 self.mp_drawing.draw_landmarks(
                     frame_bgr,
@@ -168,6 +197,24 @@ class SignLanguageHandDetector:
                     self.mp_hands.HAND_CONNECTIONS,
                     landmark_style,
                     connection_style
+                )
+
+            # Draw Hand Label badge near wrist landmark (point 0)
+            landmarks = getattr(hand_landmarks, "landmark", hand_landmarks)
+            if landmarks and len(landmarks) > 0:
+                wrist = landmarks[0]
+                wx, wy = int(wrist.x * w), int(wrist.y * h)
+                label_text = f"Hand {idx + 1} (21 pts)"
+                cv2.rectangle(frame_bgr, (wx - 4, wy - 22), (wx + 110, wy + 2), (20, 20, 20), -1)
+                cv2.putText(
+                    frame_bgr,
+                    label_text,
+                    (wx, wy - 6),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.42,
+                    pt_color,
+                    1,
+                    cv2.LINE_AA,
                 )
 
     def close(self):
@@ -212,7 +259,7 @@ def run_pipeline(
     print("Sign Language Vision Pipeline Initialized")
     print(f"- Resolution: {actual_w}x{actual_h}")
     print(f"- Camera Index: {camera_index}")
-    print(f"- Max Hands: {max_hands}")
+    print(f"- Max Hands: {max_hands} (42 Points Tracking)")
     print("- Press 'q' or 'ESC' in the video window to quit.")
     print("=" * 60)
 
@@ -238,15 +285,13 @@ def run_pipeline(
             # Process frame through MediaPipe
             hands_landmarks = detector.process_frame(frame)
 
-            # Draw the 21 landmarks on the frame
+            # Draw the landmarks on the frame
             detector.draw_landmarks_on_frame(frame, hands_landmarks)
 
-            # Extract features for all detected hands
-            hands_count = len(hands_landmarks)
-            for idx, hand_lms in enumerate(hands_landmarks):
-                # Extract 63 flattened (x, y, z) features
-                features_1d = extract_landmarks(hand_lms)
-                # features_1d is a 1D NumPy array of shape (63,) ready for ML classifier
+            # Extract dual-hand features (42 points = 126 coordinates)
+            dual_features = extract_dual_landmarks(hands_landmarks, max_hands=max_hands)
+            hands_count = len(hands_landmarks) if hands_landmarks else 0
+            points_tracked = min(hands_count, 2) * 21
 
             # Calculate smoothed FPS
             curr_time = time.perf_counter()
@@ -257,16 +302,15 @@ def run_pipeline(
                 fps = alpha * fps + (1.0 - alpha) * current_fps if fps > 0 else current_fps
 
             # UI HUD Overlay
-            # 1. Dark semi-transparent banner for readability
             overlay = frame.copy()
-            cv2.rectangle(overlay, (10, 10), (320, 95), (20, 20, 20), -1)
+            cv2.rectangle(overlay, (10, 10), (360, 95), (20, 20, 20), -1)
             cv2.addWeighted(overlay, 0.65, frame, 0.35, 0, frame)
 
-            # 2. Text information
+            # Text information
             cv2.putText(
                 frame,
                 f"FPS: {fps:.1f}",
-                (20, 38),
+                (20, 36),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.75,
                 (0, 255, 128),
@@ -275,10 +319,10 @@ def run_pipeline(
             )
             cv2.putText(
                 frame,
-                f"Hands: {hands_count} (Feature shape: 63)",
-                (20, 64),
+                f"Hands: {hands_count}/2 (Points: {points_tracked}/42 | Feats: 126)",
+                (20, 62),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.55,
+                0.50,
                 (255, 255, 255),
                 1,
                 cv2.LINE_AA,
@@ -286,7 +330,7 @@ def run_pipeline(
             cv2.putText(
                 frame,
                 "Press 'q' or 'ESC' to exit",
-                (20, 85),
+                (20, 84),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.45,
                 (180, 180, 180),

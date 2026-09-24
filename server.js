@@ -56,14 +56,14 @@ app.post("/predict", (req, res) => {
   // Validate presence and length of coordinates
   if (!coordinates || !Array.isArray(coordinates)) {
     return res.status(400).json({
-      error: "Invalid request payload. Expected an array of 63 hand coordinates.",
+      error: "Invalid request payload. Expected an array of 63 or 126 hand coordinates.",
       receivedType: typeof coordinates,
     });
   }
 
-  if (coordinates.length !== 63) {
+  if (coordinates.length !== 63 && coordinates.length !== 126) {
     return res.status(422).json({
-      error: `Expected exactly 63 coordinates (21 landmarks x 3 axes), received ${coordinates.length}.`,
+      error: `Expected 63 coordinates (21 landmarks) or 126 coordinates (42 landmarks for 2 hands), received ${coordinates.length}.`,
     });
   }
 
@@ -106,6 +106,8 @@ app.post("/predict", (req, res) => {
         responsePayload = {
           prediction: parsed.prediction || parsed.word || parsed.label || "—",
           confidence: parsed.confidence !== undefined ? parsed.confidence : 1.0,
+          handsDetected: parsed.handsDetected || (coordinates.length === 126 ? 2 : 1),
+          points: parsed.points || (coordinates.length === 126 ? 42 : 21),
           status: parsed.status,
         };
       } catch {
@@ -113,6 +115,8 @@ app.post("/predict", (req, res) => {
         responsePayload = {
           prediction: trimmed || "—",
           confidence: 1.0,
+          handsDetected: coordinates.length === 126 ? 2 : 1,
+          points: coordinates.length === 126 ? 42 : 21,
         };
       }
 

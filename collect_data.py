@@ -32,7 +32,7 @@ import numpy as np
 
 # Import hand detector and landmark extraction pipeline
 try:
-    from vision import SignLanguageHandDetector, extract_landmarks, MODEL_PATH, ensure_model_downloaded
+    from vision import SignLanguageHandDetector, extract_landmarks, extract_dual_landmarks, MODEL_PATH, ensure_model_downloaded
 except ImportError:
     # Graceful fallback in case vision.py is not in current working directory
     import urllib.request
@@ -59,6 +59,17 @@ except ImportError:
             features[:min(len(coords), 63)] = coords[:63]
             return features
         return np.array(coords, dtype=np.float32)
+
+    def extract_dual_landmarks(hand_landmarks_list, max_hands: int = 2) -> np.ndarray:
+        total_features = max_hands * 21 * 3
+        features = np.zeros(total_features, dtype=np.float32)
+        if not hand_landmarks_list:
+            return features
+        for h_idx in range(min(len(hand_landmarks_list), max_hands)):
+            hand = hand_landmarks_list[h_idx]
+            single_feats = extract_landmarks(hand)
+            features[h_idx * 63 : (h_idx + 1) * 63] = single_feats
+        return features
 
     class SignLanguageHandDetector:
         def __init__(self, max_num_hands: int = 1, min_detection_confidence: float = 0.6, min_tracking_confidence: float = 0.5):
@@ -132,60 +143,60 @@ except ImportError:
                 self.detector.close()
 
 
-def generate_header() -> List[str]:
-    """Generates the standard 64-column CSV header: label, x0, y0, z0, ..., x20, y20, z20."""
+def generate_header(num_points: int = 42) -> List[str]:
+    """Generates CSV header for either 42 points (126 coords) or 21 points (63 coords)."""
     header = ["label"]
-    for i in range(21):
+    for i in range(num_points):
         header.extend([f"x{i}", f"y{i}", f"z{i}"])
     return header
 
 
-def init_csv_file(csv_path: str) -> int:
+def init_csv_file(csv_path: str, target_points: int = 42) -> Tuple[int, int]:
     """
     Initializes the dataset CSV file with headers if it doesn't already exist.
-    Returns the count of existing sample rows in the file.
+    Returns (existing_sample_count, expected_feature_count).
     """
     existing_samples = 0
+    expected_feats = target_points * 3
     file_exists = os.path.isfile(csv_path)
 
     if file_exists and os.path.getsize(csv_path) > 0:
-        # Count existing data rows (excluding header)
         try:
             with open(csv_path, mode="r", newline="", encoding="utf-8") as f:
                 reader = csv.reader(f)
                 rows = list(reader)
                 if len(rows) > 0:
-                    # If first row has 'label', data rows count is len(rows) - 1
-                    if rows[0] and rows[0][0].lower() == "label":
+                    header = rows[0]
+                    # If first col is 'label', data cols is len(header) - 1
+                    if header and header[0].lower() == "label":
+                        expected_feats = len(header) - 1
                         existing_samples = max(0, len(rows) - 1)
                     else:
                         existing_samples = len(rows)
         except Exception as e:
             print(f"[!] Warning reading existing CSV '{csv_path}': {e}")
     else:
-        # Ensure parent directory exists
         parent_dir = os.path.dirname(csv_path)
         if parent_dir and not os.path.exists(parent_dir):
             os.makedirs(parent_dir, exist_ok=True)
 
         with open(csv_path, mode="w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
-            writer.writerow(generate_header())
-        print(f"[*] Initialized new dataset file with header: '{csv_path}'")
+            writer.writerow(generate_header(target_points))
+        print(f"[*] Initialized new dataset file with {target_points}-point ({expected_feats} features) header: '{csv_path}'")
 
-    return existing_samples
+    return existing_samples, expected_feats
 
 
-def append_sample_to_csv(csv_path: str, label: str, landmarks: List[float]) -> bool:
+def append_sample_to_csv(csv_path: str, label: str, landmarks: List[float], expected_len: int = 126) -> bool:
     """
     Appends a new sample row to the CSV file.
-    Row structure: [label, x0, y0, z0, ..., x20, y20, z20] (64 values total).
+    Row structure: [label, x0, y0, z0, ..., xN, yN, zN].
     """
-    if len(landmarks) != 63:
-        print(f"[!] Error: Expected 63 landmark coordinates, got {len(landmarks)}.")
+    if len(landmarks) != expected_len:
+        print(f"[!] Error: Expected {expected_len} landmark coordinates, got {len(landmarks)}.")
         return False
 
-    # Format numbers to 6 decimal places for cleanliness and storage efficiency
     formatted_landmarks = [round(float(v), 6) for v in landmarks]
     row = [label] + formatted_landmarks
 
@@ -338,17 +349,17 @@ def run_data_collection(
     width: int = 640,
     height: int = 480,
     default_label: str = "A",
-    max_hands: int = 1,
+    max_hands: int = 2,
 ) -> None:
     """
     Main webcam data collection loop.
-    Captures frames, extracts 21 3D landmarks (63 floats), listens for keypresses,
-    and logs samples to CSV with live visual feedback.
+    Captures frames, extracts 42 3D landmarks (126 floats for 2 hands or 63 for 1 hand),
+    listens for keypresses, and logs samples to CSV with live visual feedback.
     """
     window_name = "Sign Language Dataset Collector - collect_data.py"
 
-    # Initialize CSV file and read existing sample count
-    total_file_samples = init_csv_file(csv_path)
+    # Initialize CSV file and read existing sample count and feature dimension
+    total_file_samples, expected_feats = init_csv_file(csv_path, target_points=max_hands * 21)
 
     # Optimize camera backend for Windows (CAP_DSHOW provides instant startup & low latency)
     if sys.platform.startswith("win"):
@@ -375,7 +386,9 @@ def run_data_collection(
     print("=" * 65)
     print(f"- Output CSV File       : {os.path.abspath(csv_path)}")
     print(f"- Existing File Samples : {total_file_samples}")
+    print(f"- Expected Features     : {expected_feats} ({expected_feats // 3} points)")
     print(f"- Camera Resolution     : {actual_w}x{actual_h}")
+    print(f"- Max Hands Tracked     : {max_hands} (Up to 42 keypoints)")
     print(f"- Initial Active Label  : '{default_label.upper()}'")
     print("- Keybindings:")
     print("    * Press 'A'-'Z' or '0'-'9' : Record sample with that character label")
@@ -406,6 +419,8 @@ def run_data_collection(
             # Process frame for hand landmarks
             hands_landmarks = detector.process_frame(frame)
             hand_detected = bool(hands_landmarks and len(hands_landmarks) > 0)
+            hands_count = len(hands_landmarks) if hands_landmarks else 0
+            points_tracked = min(hands_count, 2) * 21
 
             # Draw landmarks on frame
             if hand_detected:
@@ -416,7 +431,7 @@ def run_data_collection(
                 frame=frame,
                 session_count=session_samples,
                 total_file_samples=total_file_samples,
-                active_label=active_label,
+                active_label=f"{active_label} ({points_tracked}/42 pts)",
                 hand_detected=hand_detected,
                 label_counts=label_counts,
                 feedback_msg=feedback_msg,
@@ -460,24 +475,27 @@ def run_data_collection(
                     feedback_timer = time.time()
                     print(f"[*] Attempted to record '{target_label}', but no hand was detected.")
                 else:
-                    # Extract 21 3D landmarks as a flattened list of 63 floats
-                    primary_hand = hands_landmarks[0]
-                    features_1d = extract_landmarks(primary_hand)
+                    # Extract dual landmarks (126 features) or single (63) depending on CSV format
+                    if expected_feats == 126 or max_hands >= 2:
+                        features_1d = extract_dual_landmarks(hands_landmarks, max_hands=2)
+                    else:
+                        features_1d = extract_landmarks(hands_landmarks[0])
+
                     features_list = [float(v) for v in features_1d.tolist()]
 
                     # Append row to landmarks.csv
-                    success = append_sample_to_csv(csv_path, target_label, features_list)
+                    success = append_sample_to_csv(csv_path, target_label, features_list, expected_len=expected_feats)
 
                     if success:
                         session_samples += 1
                         label_counts[target_label] = label_counts.get(target_label, 0) + 1
-                        feedback_msg = f"[+] Saved sample #{session_samples} for '{target_label}' (Label Total: {label_counts[target_label]})"
+                        feedback_msg = f"[+] Saved sample #{session_samples} for '{target_label}' ({points_tracked} pts / {expected_feats} feats)"
                         feedback_is_error = False
                         feedback_timer = time.time()
                         print(
                             f"[+] Recorded sample #{session_samples}: Label='{target_label}' "
                             f"(Session count for '{target_label}': {label_counts[target_label]}, "
-                            f"Features: 63 floats)"
+                            f"Hands: {hands_count}, Features: {expected_feats} floats)"
                         )
                     else:
                         feedback_msg = f"[!] Failed to write sample to '{csv_path}'."
@@ -507,7 +525,7 @@ def run_data_collection(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Dataset collection tool for sign language classification with OpenCV and MediaPipe Hands."
+        description="Dataset collection tool for sign language classification with OpenCV and MediaPipe Hands (Supports 42 Points Dual Hands)."
     )
     parser.add_argument(
         "-o",
@@ -545,8 +563,8 @@ def main():
     parser.add_argument(
         "--max-hands",
         type=int,
-        default=1,
-        help="Maximum hands to detect (default: 1)",
+        default=2,
+        help="Maximum hands to detect (default: 2, 42 points)",
     )
 
     args = parser.parse_args()
