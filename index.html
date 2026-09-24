@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BridgeSign Kiosk - Real-Time Sign Language Interpreter Terminal</title>
+  
+  <!-- Modern Typography (Plus Jakarta Sans & JetBrains Mono) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+
+  <!-- Pre-load MediaPipe Tasks Vision ESM Library via CDN -->
+  <script type="module">
+    try {
+      import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs").then((mod) => {
+        window.tasksVision = mod;
+        window.dispatchEvent(new CustomEvent("mediapipe-tasks-vision-ready"));
+      });
+    } catch (e) {
+      console.warn("CDN module pre-load deferred to main.js:", e);
+    }
+  </script>
+
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+  <!-- KIOSK HEADER: PUBLIC ACCESSIBILITY TERMINAL -->
+  <header class="kiosk-header">
+    <div class="kiosk-brand">
+      <div class="kiosk-emblem" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path>
+          <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path>
+          <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path>
+          <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path>
+        </svg>
+      </div>
+      <div class="kiosk-titles">
+        <span class="kiosk-tagline">Citizen Services • Accessibility Terminal</span>
+        <h1 class="kiosk-title">Sign Language Bridge</h1>
+      </div>
+    </div>
+
+    <div class="kiosk-station-meta">
+      <span class="kiosk-station-id">Counter #04 • Public Service Hub</span>
+      <div id="kiosk_clock" class="kiosk-clock">--:--:--</div>
+      <div id="backend_badge" class="kiosk-status-badge standby">
+        <span class="kiosk-status-dot"></span>
+        <span id="backend_status_text">Connecting: localhost:3000</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN KIOSK DUAL-CONSOLE -->
+  <main class="kiosk-container">
+
+    <!-- LEFT STAGE: LIVE CAMERA FEED & 3D HAND TRACKING VIEWPORT -->
+    <section class="viewport-panel" aria-label="Webcam Video Feed and Hand Tracking Viewport">
+      <div class="panel-header">
+        <div class="panel-header-left">
+          <span class="panel-title">Interactive Vision Viewport</span>
+          <span id="reticle_badge" class="reticle-badge searching">Awaiting Hand</span>
+        </div>
+        <div class="telemetry-pill">
+          FPS: <strong id="fps_counter">--</strong>
+        </div>
+      </div>
+
+      <!-- VIDEO STAGE: <video> element with overlaid landmark <canvas> -->
+      <div class="video-stage">
+        <video id="webcam" class="mirrored" autoplay playsinline muted></video>
+        <canvas id="output_canvas" class="mirrored"></canvas>
+
+        <!-- Centered Target Guide for Kiosk Visitors -->
+        <div id="target_guide" class="target-guide">
+          <span class="target-guide-label">Gesture Position Guide</span>
+        </div>
+
+        <!-- Loading / Startup Overlay -->
+        <div id="loader_overlay" class="video-loader-overlay">
+          <div class="spinner"></div>
+          <span id="loader_status" class="loader-text">Initializing MediaPipe Tasks Vision...</span>
+        </div>
+      </div>
+
+      <!-- VIEWPORT CONTROLS BAR -->
+      <div class="viewport-controls">
+        <div class="button-group">
+          <button id="btn_toggle_cam" class="kiosk-btn active" title="Toggle Webcam">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 7l-7 5 7 5V7z"></path>
+              <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+            </svg>
+            <span id="cam_btn_text">Camera Active</span>
+          </button>
+
+          <button id="btn_toggle_mirror" class="kiosk-btn active" title="Toggle Mirror View">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+              <line x1="12" y1="22.08" x2="12" y2="12"></line>
+            </svg>
+            <span>Mirror</span>
+          </button>
+
+          <button id="btn_toggle_landmarks" class="kiosk-btn active" title="Toggle Skeletal Mesh">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <circle cx="12" cy="12" r="4"></circle>
+              <line x1="4.93" y1="4.93" x2="9.17" y2="9.17"></line>
+              <line x1="14.83" y1="14.83" x2="19.07" y2="19.07"></line>
+            </svg>
+            <span>Landmarks</span>
+          </button>
+        </div>
+
+        <div class="telemetry-pill">
+          Points: <strong id="pts_counter">0/21</strong>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT STAGE: RECOGNITION CONSOLE & SERVICE COUNTER INTERFACE -->
+    <aside class="kiosk-console" aria-label="Sign Language Interpretation Console">
+
+      <!-- HERO PREDICTION CARD -->
+      <section class="prediction-card">
+        <div class="card-label">
+          <span>Real-Time Interpretation</span>
+          <span id="prediction_rate_badge" style="color: var(--accent-cyan); font-family: var(--font-mono);">10 Hz Stream</span>
+        </div>
+
+        <div class="prediction-hero-box">
+          <div id="prediction_display" class="predicted-char empty">—</div>
+        </div>
+
+        <!-- Confidence Gauge Bar -->
+        <div class="confidence-wrapper">
+          <div class="confidence-header">
+            <span>Model Confidence</span>
+            <span id="confidence_percent" style="font-family: var(--font-mono);">0.0%</span>
+          </div>
+          <div class="confidence-track">
+            <div id="confidence_bar" class="confidence-fill"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SENTENCE / TRANSCRIPT BUILDER -->
+      <section class="transcript-card">
+        <div class="card-label">
+          <span>Communication Transcript</span>
+          <span style="color: var(--text-muted);">Auto-buffered</span>
+        </div>
+
+        <div id="transcript_box" class="transcript-area" role="log" aria-live="polite">
+          <span id="transcript_content"></span><span class="transcript-cursor"></span>
+        </div>
+
+        <div class="transcript-actions">
+          <div class="button-group">
+            <button id="btn_speak_transcript" class="kiosk-btn" title="Speak Aloud via Text-To-Speech">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+              </svg>
+              <span>Speak Aloud</span>
+            </button>
+
+            <button id="btn_space" class="kiosk-btn" title="Add Space">
+              <span>Space</span>
+            </button>
+
+            <button id="btn_backspace" class="kiosk-btn" title="Delete Last Character">
+              <span>Backspace</span>
+            </button>
+          </div>
+
+          <div class="button-group">
+            <button id="btn_copy_transcript" class="kiosk-btn" title="Copy to Clipboard">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <span id="copy_btn_text">Copy</span>
+            </button>
+
+            <button id="btn_clear_transcript" class="kiosk-btn" title="Clear Entire Transcript">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+              <span>Clear</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- PUBLIC SERVICE KIOSK TELEMETRY & 63-COORDINATE PAYLOAD DOCK -->
+      <section class="telemetry-card">
+        <div class="endpoint-indicator">
+          <div class="endpoint-url">
+            <span class="endpoint-method">POST</span>
+            <span>http://localhost:3000/predict</span>
+          </div>
+          <span id="backend_latency" style="color: var(--accent-emerald);">-- ms</span>
+        </div>
+
+        <div class="card-label" style="margin-bottom: 0;">
+          <span>63-Coordinate Feature Payload (x, y, z × 21)</span>
+          <span id="payload_status" style="font-family: var(--font-mono); color: var(--text-muted);">Idle</span>
+        </div>
+
+        <div id="payload_preview" class="payload-preview" title="Live stream of flattened 63 coordinates sent to backend">
+          [ awaiting hand detection... ]
+        </div>
+      </section>
+
+    </aside>
+
+  </main>
+
+  <!-- KIOSK FOOTER -->
+  <footer class="kiosk-footer">
+    <div class="footer-compliance">
+      <span>ADA & WCAG 2.1 Compliant Service Interface</span>
+      <span>•</span>
+      <span>Express Backend: <code style="color: var(--accent-cyan);">localhost:3000/predict</code></span>
+    </div>
+    <div>MediaPipe Tasks Vision 0.10.14 (CDN) • Vite Runtime</div>
+  </footer>
+
+  <!-- MAIN VITE JAVASCRIPT LOGIC -->
+  <script type="module" src="/main.js"></script>
+</body>
+</html>

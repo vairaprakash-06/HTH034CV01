@@ -18,6 +18,10 @@ ENV/
 *.swp
 *.swo
 
+# Node / Vite web app
+node_modules/
+dist/
+
 # OS generated files
 .DS_Store
 Thumbs.db
