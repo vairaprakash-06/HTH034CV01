@@ -217,7 +217,7 @@ DEFAULT_TRAINING_WORDS: List[str] = [
     # Urgent & Assistance
     "HELP", "EMERGENCY", "DOCTOR", "HOSPITAL", "MEDICINE", "PAIN",
     # Daily Essentials
-    "WATER", "FOOD", "RESTROOM", "MORE", "DONE", "STOP",
+    "WATER", "FOOD", "MORE", "DONE", "STOP",
     # Interaction & Society
     "FRIEND", "FAMILY", "TOGETHER", "LOVE", "PEACE", "WAIT", "TIME",
     "MONEY", "WHERE", "REPEAT", "GOOD", "BAD",

@@ -1,7 +1,7 @@
 """
-generate_dataset.py - Generate comprehensive 32-word landmark dataset for training.
+generate_dataset.py - Generate comprehensive 33-word landmark dataset for training.
 
-Generates realistic 42-keypoint (126 features) landmark samples for all 32 sign language
+Generates realistic 42-keypoint (126 features) landmark samples for all 33 sign language
 vocabulary words, with variations in scale, translation, rotation, and finger articulation.
 Outputs to landmarks.csv ready for train.py.
 """
@@ -19,7 +19,7 @@ WORDS = [
     # Urgent & Assistance
     "HELP", "EMERGENCY", "DOCTOR", "HOSPITAL", "MEDICINE", "PAIN",
     # Daily Essentials
-    "WATER", "FOOD", "RESTROOM", "MORE", "DONE", "STOP",
+    "WATER", "FOOD", "MORE", "DONE", "STOP",
     # Interaction & Society
     "FRIEND", "FAMILY", "TOGETHER", "LOVE", "PEACE", "WAIT", "TIME",
     "MONEY", "WHERE", "REPEAT", "GOOD", "BAD",
@@ -166,8 +166,6 @@ def generate_word_landmarks(word: str) -> np.ndarray:
         h2 = make_hand_landmarks(wrist=(0.48, 0.78, 0.0), fist=True)
     elif w == "HOSPITAL":
         h1 = make_hand_landmarks(wrist=(0.58, 0.68, 0.0), thumb_ext=False, index_ext=True, middle_ext=True, ring_ext=False, pinky_ext=False)
-    elif w == "RESTROOM":
-        h1 = make_hand_landmarks(wrist=(0.58, 0.70, 0.0), thumb_ext=True, fist=True) # T handshape
     elif w == "MEDICINE":
         h1 = make_hand_landmarks(wrist=(0.50, 0.66, 0.0), middle_ext=True, index_ext=False, ring_ext=False, pinky_ext=False)
         h2 = make_hand_landmarks(wrist=(0.50, 0.76, 0.0), thumb_ext=True, index_ext=True, middle_ext=True, ring_ext=True, pinky_ext=True)

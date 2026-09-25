@@ -867,22 +867,6 @@ const BEGINNER_VOCABULARY = [
     responseTa: "மருத்துவமனை தரைத்தளம், கிழக்கு பகுதியில் உள்ளது.",
   },
   {
-    key: "RESTROOM",
-    label: "Restroom",
-    labelTa: "கழிப்பறை",
-    wordTa: "கழிப்பறை",
-    emoji: "🚻",
-    hands: "1H",
-    handsCount: 1,
-    pointsCount: 21,
-    tip: "T handshape (thumb between index and middle) shaking gently",
-    tipTa: "மூடிய கையை மெதுவாக அசைக்கவும்",
-    speech: "Where is the restroom?",
-    speechTa: "கழிப்பறை எங்கே உள்ளது?",
-    response: "Accessible restrooms are located 20 feet down the hallway to your right.",
-    responseTa: "கழிப்பறை உங்கள் வலதுபுறம் 20 அடி தூரத்தில் உள்ளது.",
-  },
-  {
     key: "MEDICINE",
     label: "Medicine",
     labelTa: "மருந்து",
@@ -1387,18 +1371,6 @@ function detectDynamicMotionSign(handsLandmarks, now) {
     }
   }
 
-  // 3. SHAKING T-FIST / CLOSED FIST -> RESTROOM (🚻)
-  const isFist = !h1.indexExt && !h1.middleExt && !h1.ringExt && !h1.pinkyExt;
-  if (isFist) {
-    const isShakingFist =
-      (lateralReversalsH1 >= 2 && (lateralSpanH1 >= 0.024 || lateralDistH1 >= 0.040)) ||
-      (lateralReversalsH1 >= 1 && lateralSpanH1 >= 0.038);
-
-    if (isShakingFist) {
-      return buildVocabMatch("RESTROOM", 0.98, true);
-    }
-  }
-
   // 4. VERTICAL TAPPING ON OPPOSITE WRIST -> TIME (⏰) or DOCTOR (🩺)
   // Supports both hand orders: H1 tapping on H2, or H2 tapping on H1!
   if (handsCount >= 2 && h2) {
@@ -1815,11 +1787,6 @@ function calculateRealTimeGesture(handsLandmarks) {
     // 28. MONEY Static Pinch
     if (dist2D(h1.thumbTip, h1.indexTip) < 0.05 && dist2D(h1.thumbTip, h1.middleTip) < 0.06 && !h1.ringExt) {
       return buildVocabMatch("MONEY", 0.93);
-    }
-
-    // 29. RESTROOM Static T-Fist
-    if (!h1.indexExt && !h1.middleExt && !h1.ringExt && !h1.pinkyExt && h1.thumbExt && !h1.thumbUp && !h1.thumbDown) {
-      return buildVocabMatch("RESTROOM", 0.93);
     }
 
     // 30. WHERE Static Open Palm
