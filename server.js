@@ -31,8 +31,74 @@ app.get("/", (req, res) => {
   res.json({
     status: "online",
     service: "Sign Language Bridge API",
-    endpoint: "POST /predict",
+    endpoints: ["POST /predict", "POST /api/smooth-sentence"],
     port: PORT,
+  });
+});
+
+/**
+ * POST /api/smooth-sentence
+ * LLM Smoothing placeholder endpoint:
+ * Accepts: { "sentence": "HELP PLEASE WATER" } or { "text": "..." }
+ * Returns natural, polished conversational English.
+ */
+app.post("/api/smooth-sentence", (req, res) => {
+  const raw = (req.body.sentence || req.body.text || "").trim();
+  if (!raw) {
+    return res.status(400).json({ error: "Missing sentence in request body." });
+  }
+
+  // Example rule-based conversational normalizer (replace with OpenAI/Gemini/Ollama API call in production)
+  let smoothed = raw;
+  const upper = raw.toUpperCase();
+
+  if (upper.includes("HELP") && (upper.includes("PLEASE") || upper.includes("WATER"))) {
+    smoothed = "Could you please help me? I need some water.";
+  } else if (upper.includes("HELP") && upper.includes("PLEASE")) {
+    smoothed = "Excuse me, could you please help me with this?";
+  } else if (upper.includes("I") && upper.includes("LIKE")) {
+    smoothed = "I really like this, thank you!";
+  } else if (upper.includes("WE") && upper.includes("LIKE")) {
+    smoothed = "We really like this service!";
+  } else if (upper.includes("I") && upper.includes("WATER")) {
+    smoothed = "May I please have some drinking water?";
+  } else if (upper.includes("WE") && upper.includes("HELP")) {
+    smoothed = "We would appreciate some assistance with our inquiry, please.";
+  } else if (upper.includes("WATER") || upper.includes("FOOD")) {
+    smoothed = "I would like to request some water or food, please.";
+  } else if (upper.includes("HELLO") || upper.includes("WELCOME")) {
+    smoothed = "Hello, good day! I am here at Counter #04.";
+  } else if (upper.includes("THANK") || upper.includes("YOU")) {
+    smoothed = "Thank you very much for your kind assistance!";
+  } else if (raw.includes("உதவி") && (raw.includes("தயவுசெய்து") || raw.includes("தண்ணீர்"))) {
+    smoothed = "தயவுசெய்து எனக்கு உதவ முடியுமா? எனக்கு கொஞ்சம் தண்ணீர் தேவை.";
+  } else if (raw.includes("உதவி") && raw.includes("தயவுசெய்து")) {
+    smoothed = "தயவுசெய்து எனக்கு இதில் கொஞ்சம் உதவ முடியுமா?";
+  } else if (raw.includes("நான்") && raw.includes("பிடிக்கும்")) {
+    smoothed = "எனக்கு இது மிகவும் பிடிக்கும், மிக்க நன்றி!";
+  } else if (raw.includes("நாம்") && raw.includes("பிடிக்கும்")) {
+    smoothed = "எங்களுக்கு இந்த சேவை மிகவும் பிடிக்கும்!";
+  } else if (raw.includes("நான்") && raw.includes("தண்ணீர்")) {
+    smoothed = "தயவுசெய்து எனக்கு குடிதண்ணீர் கிடைக்குமா?";
+  } else if (raw.includes("நாம்") && raw.includes("உதவி")) {
+    smoothed = "எங்கள் குழுவிற்கு ஒரு சிறிய உதவி தேவைப்படுகிறது.";
+  } else if (raw.includes("தண்ணீர்") || raw.includes("உணவு")) {
+    smoothed = "தயவுசெய்து உணவு அல்லது குடிதண்ணீர் பெற விரும்புகிறேன்.";
+  } else if (raw.includes("வணக்கம்")) {
+    smoothed = "வணக்கம்! கவுண்டர் #04-ல் இருக்கிறேன்.";
+  } else if (raw.includes("நன்றி")) {
+    smoothed = "உங்கள் கனிவான உதவிக்கு மிக்க நன்றி!";
+  } else {
+    // Basic grammatical title casing and punctuation
+    smoothed = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+    if (!/[.!?]$/.test(smoothed)) smoothed += ".";
+  }
+
+  return res.json({
+    original: raw,
+    smoothedSentence: smoothed,
+    model: "sign-bridge-llm-smoother-v1",
+    timestamp: new Date().toISOString(),
   });
 });
 

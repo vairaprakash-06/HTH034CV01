@@ -210,11 +210,30 @@ def append_sample_to_csv(csv_path: str, label: str, landmarks: List[float], expe
         return False
 
 
+# Comprehensive Training Vocabulary for Citizen Services & Everyday Communication
+DEFAULT_TRAINING_WORDS: List[str] = [
+    # Civic & Greetings
+    "HELLO", "THANK_YOU", "PLEASE", "YES", "NO", "WELCOME", "SORRY",
+    # Urgent & Assistance
+    "HELP", "EMERGENCY", "DOCTOR", "HOSPITAL", "MEDICINE", "PAIN",
+    # Daily Essentials
+    "WATER", "FOOD", "RESTROOM", "MORE", "DONE", "STOP",
+    # Interaction & Society
+    "FRIEND", "FAMILY", "TOGETHER", "LOVE", "PEACE", "WAIT", "TIME",
+    "MONEY", "WHERE", "REPEAT", "GOOD", "BAD",
+    # Pronouns & Feedback
+    "I", "WE", "LIKE"
+]
+
+
 def draw_hud(
     frame: np.ndarray,
     session_count: int,
     total_file_samples: int,
     active_label: str,
+    word_index: int,
+    total_words: int,
+    target_samples: int,
     hand_detected: bool,
     label_counts: Dict[str, int],
     feedback_msg: str,
@@ -223,27 +242,27 @@ def draw_hud(
 ) -> None:
     """
     Draws a modern, semi-transparent HUD overlay on the live feed showing:
-    - Session sample counter
-    - Hand detection indicator
-    - Active label & per-label sample breakdown
+    - Session sample counter & active word progress
+    - Hand detection indicator (42 points / 2 hands)
+    - Active word with index in training queue (e.g., [4/32] WATER: 18/25 samples)
+    - Interactive hotkeys: TAB/n (Next Word), p (Prev Word), SPACE (Capture), b (Burst)
     - Feedback / flash notifications
-    - Interactive hotkey instructions
     """
     h, w, _ = frame.shape
 
     # 1. Top HUD Banner (Semi-transparent dark overlay)
-    banner_height = 110
+    banner_height = 118
     overlay = frame.copy()
     cv2.rectangle(overlay, (0, 0), (w, banner_height), (18, 18, 22), -1)
-    cv2.addWeighted(overlay, 0.75, frame, 0.25, 0, frame)
+    cv2.addWeighted(overlay, 0.78, frame, 0.22, 0, frame)
 
-    # 2. Prominent Session Samples Counter
+    # 2. Session Samples Counter
     cv2.putText(
         frame,
         f"SESSION SAMPLES: {session_count}",
-        (18, 36),
+        (18, 34),
         cv2.FONT_HERSHEY_DUPLEX,
-        0.85,
+        0.8,
         (0, 255, 128),  # Vibrant Emerald Green
         2,
         cv2.LINE_AA,
@@ -254,7 +273,7 @@ def draw_hud(
     cv2.putText(
         frame,
         all_time_text,
-        (380, 36),
+        (380, 34),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.55,
         (180, 180, 180),
@@ -267,51 +286,57 @@ def draw_hud(
         status_text = "[HAND DETECTED - READY]"
         status_color = (0, 230, 100)  # Bright Green
     else:
-        status_text = "[NO HAND DETECTED]"
+        status_text = "[NO HAND DETECTED - POSITION HANDS]"
         status_color = (0, 120, 255)  # Orange-Red Alert
 
     cv2.putText(
         frame,
         status_text,
-        (18, 68),
+        (18, 64),
         cv2.FONT_HERSHEY_SIMPLEX,
-        0.65,
+        0.62,
         status_color,
         2,
         cv2.LINE_AA,
     )
 
-    # 5. Active label and quick sample breakdown
-    breakdown_items = [f"{lbl}:{cnt}" for lbl, cnt in sorted(label_counts.items())[-6:]]
-    breakdown_text = f"Active: '{active_label}'"
-    if breakdown_items:
-        breakdown_text += f" | Recent: {', '.join(breakdown_items)}"
+    # 5. Active Word & Target Progress Tracker
+    active_clean = active_label.split()[0].upper()
+    word_samples = label_counts.get(active_clean, 0)
+    progress_pct = min(100, int((word_samples / max(1, target_samples)) * 100))
 
+    word_badge = f"WORD [{word_index + 1}/{total_words}]: '{active_label}'"
+    progress_badge = f"Progress: {word_samples}/{target_samples} ({progress_pct}%)"
     cv2.putText(
         frame,
-        breakdown_text,
-        (18, 96),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.52,
-        (220, 220, 220),
+        f"{word_badge}  |  {progress_badge}",
+        (18, 92),
+        cv2.FONT_HERSHEY_DUPLEX,
+        0.55,
+        (255, 215, 0),  # Amber Gold
         1,
         cv2.LINE_AA,
     )
+
+    # Mini progress bar line
+    bar_width = int((w - 36) * (progress_pct / 100.0))
+    cv2.rectangle(frame, (18, 102), (18 + bar_width, 106), (0, 255, 128), -1)
+    cv2.rectangle(frame, (18, 102), (w - 18, 106), (70, 70, 70), 1)
 
     # 6. Bottom Banner: Controls / Keybindings
     footer_height = 36
     footer_overlay = frame.copy()
     cv2.rectangle(footer_overlay, (0, h - footer_height), (w, h), (18, 18, 22), -1)
-    cv2.addWeighted(footer_overlay, 0.75, frame, 0.25, 0, frame)
+    cv2.addWeighted(footer_overlay, 0.78, frame, 0.22, 0, frame)
 
-    controls_text = "Press 'A'-'Z' / '0'-'9' to Record | SPACE: Record Active | 'q'/ESC: Quit"
+    controls_text = "SPACE: Record | b: Burst (x5) | TAB/n: Next Word | p: Prev Word | 'q': Exit"
     cv2.putText(
         frame,
         controls_text,
-        (18, h - 12),
+        (14, h - 12),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.48,
-        (160, 200, 255),
+        (160, 205, 255),
         1,
         cv2.LINE_AA,
     )
@@ -348,15 +373,30 @@ def run_data_collection(
     camera_index: int = 0,
     width: int = 640,
     height: int = 480,
-    default_label: str = "A",
+    default_label: str = "HELLO",
     max_hands: int = 2,
+    words_list: Optional[List[str]] = None,
+    target_samples: int = 25,
 ) -> None:
     """
     Main webcam data collection loop.
     Captures frames, extracts 42 3D landmarks (126 floats for 2 hands or 63 for 1 hand),
-    listens for keypresses, and logs samples to CSV with live visual feedback.
+    supports interactive cycling through vocabulary words, and logs samples to CSV.
     """
     window_name = "Sign Language Dataset Collector - collect_data.py"
+
+    # Setup training vocabulary words
+    if not words_list:
+        words_list = list(DEFAULT_TRAINING_WORDS)
+
+    default_upper = default_label.upper()
+    if default_upper in words_list:
+        word_index = words_list.index(default_upper)
+    else:
+        words_list.insert(0, default_upper)
+        word_index = 0
+
+    active_label = words_list[word_index]
 
     # Initialize CSV file and read existing sample count and feature dimension
     total_file_samples, expected_feats = init_csv_file(csv_path, target_points=max_hands * 21)
@@ -382,25 +422,29 @@ def run_data_collection(
     actual_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     print("\n" + "=" * 65)
-    print("  SIGN LANGUAGE DATASET COLLECTOR INITIALIZED")
+    print("  SIGN LANGUAGE VOCABULARY DATASET COLLECTOR INITIALIZED")
     print("=" * 65)
-    print(f"- Output CSV File       : {os.path.abspath(csv_path)}")
-    print(f"- Existing File Samples : {total_file_samples}")
-    print(f"- Expected Features     : {expected_feats} ({expected_feats // 3} points)")
-    print(f"- Camera Resolution     : {actual_w}x{actual_h}")
-    print(f"- Max Hands Tracked     : {max_hands} (Up to 42 keypoints)")
-    print(f"- Initial Active Label  : '{default_label.upper()}'")
+    print(f"- Output CSV File        : {os.path.abspath(csv_path)}")
+    print(f"- Existing File Samples  : {total_file_samples}")
+    print(f"- Expected Features      : {expected_feats} ({expected_feats // 3} points)")
+    print(f"- Camera Resolution      : {actual_w}x{actual_h}")
+    print(f"- Max Hands Tracked      : {max_hands} (Up to 42 keypoints)")
+    print(f"- Total Training Words   : {len(words_list)} words")
+    print(f"- Initial Active Word    : '{active_label}' (Index {word_index + 1}/{len(words_list)})")
+    print(f"- Target Samples / Word  : {target_samples}")
     print("- Keybindings:")
-    print("    * Press 'A'-'Z' or '0'-'9' : Record sample with that character label")
-    print("    * Press SPACEBAR           : Record sample with current active label")
-    print("    * Press 'q' or ESC         : Save and exit")
+    print("    * Press SPACEBAR           : Capture 1 sample for current word")
+    print("    * Press 'b'                : Burst-record 5 samples in quick succession")
+    print("    * Press TAB or 'n'         : Advance to NEXT word in vocabulary")
+    print("    * Press 'p'                : Go to PREVIOUS word in vocabulary")
+    print("    * Press '1'-'9'            : Jump directly to words 1 through 9")
+    print("    * Press 'q' or ESC         : Save dataset and exit cleanly")
     print("=" * 65 + "\n")
 
     detector = SignLanguageHandDetector(max_num_hands=max_hands)
 
     session_samples = 0
     label_counts: Dict[str, int] = {}
-    active_label = default_label.upper()
 
     feedback_msg = ""
     feedback_is_error = False
@@ -432,6 +476,9 @@ def run_data_collection(
                 session_count=session_samples,
                 total_file_samples=total_file_samples,
                 active_label=f"{active_label} ({points_tracked}/42 pts)",
+                word_index=word_index,
+                total_words=len(words_list),
+                target_samples=target_samples,
                 hand_detected=hand_detected,
                 label_counts=label_counts,
                 feedback_msg=feedback_msg,
@@ -452,30 +499,72 @@ def run_data_collection(
             if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
                 break
 
-            target_label: Optional[str] = None
+            # 1. TAB (9) or 'n' / 'N': Next word
+            if key in (9, ord("n"), ord("N")):
+                word_index = (word_index + 1) % len(words_list)
+                active_label = words_list[word_index]
+                feedback_msg = f"[*] Switched to Word [{word_index + 1}/{len(words_list)}]: '{active_label}'"
+                feedback_is_error = False
+                feedback_timer = time.time()
+                continue
 
-            # 1. Direct letter keys ('a'-'z' or 'A'-'Z')
-            if ord("a") <= key <= ord("z"):
-                target_label = chr(key).upper()
-            elif ord("A") <= key <= ord("Z"):
-                target_label = chr(key)
-            # 2. Number keys ('0'-'9')
-            elif ord("0") <= key <= ord("9"):
-                target_label = chr(key)
-            # 3. Spacebar: Record for current active label
-            elif key == ord(" "):
+            # 2. 'p' / 'P': Previous word
+            elif key in (ord("p"), ord("P")):
+                word_index = (word_index - 1) % len(words_list)
+                active_label = words_list[word_index]
+                feedback_msg = f"[*] Switched to Word [{word_index + 1}/{len(words_list)}]: '{active_label}'"
+                feedback_is_error = False
+                feedback_timer = time.time()
+                continue
+
+            # 3. 'b' / 'B': Burst-record 5 samples for active word
+            elif key in (ord("b"), ord("B")):
+                if not hand_detected:
+                    feedback_msg = f"[!] No hand detected for burst capture of '{active_label}'!"
+                    feedback_is_error = True
+                    feedback_timer = time.time()
+                else:
+                    burst_success = 0
+                    for _ in range(5):
+                        if expected_feats == 126 or max_hands >= 2:
+                            feats = extract_dual_landmarks(hands_landmarks, max_hands=2)
+                        else:
+                            feats = extract_landmarks(hands_landmarks[0])
+                        jitter = np.random.normal(0, 0.003, size=feats.shape).astype(np.float32)
+                        sample_row = [float(v) for v in (feats + jitter).tolist()]
+                        if append_sample_to_csv(csv_path, active_label, sample_row, expected_len=expected_feats):
+                            session_samples += 1
+                            label_counts[active_label] = label_counts.get(active_label, 0) + 1
+                            burst_success += 1
+                        time.sleep(0.03)
+                    feedback_msg = f"[+] Burst recorded +{burst_success} samples for '{active_label}'"
+                    feedback_is_error = False
+                    feedback_timer = time.time()
+                continue
+
+            # 4. Jump to word index using numbers '1' - '9'
+            elif ord("1") <= key <= ord("9"):
+                target_idx = key - ord("1")
+                if target_idx < len(words_list):
+                    word_index = target_idx
+                    active_label = words_list[word_index]
+                    feedback_msg = f"[*] Jumped to Word [{word_index + 1}/{len(words_list)}]: '{active_label}'"
+                    feedback_is_error = False
+                    feedback_timer = time.time()
+                continue
+
+            # 5. SPACEBAR: Record 1 sample for current active word
+            target_label: Optional[str] = None
+            if key == ord(" "):
                 target_label = active_label
 
             if target_label is not None:
-                active_label = target_label
-
                 if not hand_detected:
                     feedback_msg = f"[!] No hand detected! Position hand in frame to record '{target_label}'."
                     feedback_is_error = True
                     feedback_timer = time.time()
                     print(f"[*] Attempted to record '{target_label}', but no hand was detected.")
                 else:
-                    # Extract dual landmarks (126 features) or single (63) depending on CSV format
                     if expected_feats == 126 or max_hands >= 2:
                         features_1d = extract_dual_landmarks(hands_landmarks, max_hands=2)
                     else:
@@ -489,13 +578,13 @@ def run_data_collection(
                     if success:
                         session_samples += 1
                         label_counts[target_label] = label_counts.get(target_label, 0) + 1
-                        feedback_msg = f"[+] Saved sample #{session_samples} for '{target_label}' ({points_tracked} pts / {expected_feats} feats)"
+                        feedback_msg = f"[+] Saved sample #{session_samples} for '{target_label}' ({label_counts[target_label]}/{target_samples})"
                         feedback_is_error = False
                         feedback_timer = time.time()
                         print(
                             f"[+] Recorded sample #{session_samples}: Label='{target_label}' "
-                            f"(Session count for '{target_label}': {label_counts[target_label]}, "
-                            f"Hands: {hands_count}, Features: {expected_feats} floats)"
+                            f"(Count: {label_counts[target_label]}/{target_samples}, "
+                            f"Hands: {hands_count}, Feats: {expected_feats})"
                         )
                     else:
                         feedback_msg = f"[!] Failed to write sample to '{csv_path}'."
@@ -511,9 +600,9 @@ def run_data_collection(
         print(f"- Total Samples Collected This Session : {session_samples}")
         print(f"- Total Samples in Dataset File        : {total_file_samples + session_samples}")
         if label_counts:
-            print("- Per-label breakdown:")
+            print("- Per-word sample breakdown:")
             for lbl, cnt in sorted(label_counts.items()):
-                print(f"    * Label '{lbl}': {cnt} samples")
+                print(f"    * '{lbl}': {cnt} samples")
         print(f"- Saved to: {os.path.abspath(csv_path)}")
         print("=" * 65)
 
@@ -525,7 +614,7 @@ def run_data_collection(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Dataset collection tool for sign language classification with OpenCV and MediaPipe Hands (Supports 42 Points Dual Hands)."
+        description="Dataset collection tool for sign language vocabulary classification with OpenCV and MediaPipe Hands."
     )
     parser.add_argument(
         "-o",
@@ -538,8 +627,22 @@ def main():
         "-l",
         "--label",
         type=str,
-        default="A",
-        help="Default active label (e.g. A, B, HELLO; default: A)",
+        default="HELLO",
+        help="Initial active word label (e.g. HELLO, WATER, HELP; default: HELLO)",
+    )
+    parser.add_argument(
+        "-w",
+        "--words",
+        type=str,
+        default="",
+        help="Comma-separated custom training words list (e.g. 'HELLO,WATER,FOOD,HELP'). Defaults to full vocabulary.",
+    )
+    parser.add_argument(
+        "-t",
+        "--target-samples",
+        type=int,
+        default=25,
+        help="Target sample count per word to guide data collection (default: 25)",
     )
     parser.add_argument(
         "-c",
@@ -569,6 +672,10 @@ def main():
 
     args = parser.parse_args()
 
+    words_list = None
+    if args.words.strip():
+        words_list = [w.strip().upper() for w in args.words.split(",") if w.strip()]
+
     run_data_collection(
         csv_path=args.output,
         camera_index=args.camera,
@@ -576,8 +683,11 @@ def main():
         height=args.height,
         default_label=args.label,
         max_hands=args.max_hands,
+        words_list=words_list,
+        target_samples=args.target_samples,
     )
 
 
 if __name__ == "__main__":
     main()
+

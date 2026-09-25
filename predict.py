@@ -129,14 +129,16 @@ def calculate_dual_hand_gesture(coords):
         pinky_pip = get_pt(offset + 18)
         pinky_mcp = get_pt(offset + 17)
 
-        # Extended if tip is higher (smaller y) than pip relative to wrist, or further from wrist
-        index_ext = index_tip[1] < index_pip[1] and dist_2d(index_tip, wrist) > dist_2d(index_pip, wrist)
-        middle_ext = middle_tip[1] < middle_pip[1] and dist_2d(middle_tip, wrist) > dist_2d(middle_pip, wrist)
-        ring_ext = ring_tip[1] < ring_pip[1] and dist_2d(ring_tip, wrist) > dist_2d(ring_pip, wrist)
-        pinky_ext = pinky_tip[1] < pinky_pip[1] and dist_2d(pinky_tip, wrist) > dist_2d(pinky_pip, wrist)
+        # Orientation-invariant Euclidean ratios along kinematic finger chains
+        index_ext = dist_2d(index_tip, wrist) > dist_2d(index_pip, wrist) * 1.12 and dist_2d(index_tip, index_mcp) > dist_2d(index_pip, index_mcp) * 0.95
+        middle_ext = dist_2d(middle_tip, wrist) > dist_2d(middle_pip, wrist) * 1.12 and dist_2d(middle_tip, middle_mcp) > dist_2d(middle_pip, middle_mcp) * 0.95
+        ring_ext = dist_2d(ring_tip, wrist) > dist_2d(ring_pip, wrist) * 1.12 and dist_2d(ring_tip, ring_mcp) > dist_2d(ring_pip, ring_mcp) * 0.95
+        pinky_ext = dist_2d(pinky_tip, wrist) > dist_2d(pinky_pip, wrist) * 1.12 and dist_2d(pinky_tip, pinky_mcp) > dist_2d(pinky_pip, pinky_mcp) * 0.95
 
-        # Thumb extension: tip distance to pinky mcp vs thumb ip to pinky mcp
-        thumb_ext = dist_2d(thumb_tip, pinky_mcp) > dist_2d(thumb_ip, pinky_mcp) * 1.15
+        # Thumb extension & directional orientation
+        thumb_ext = dist_2d(thumb_tip, index_mcp) > 0.075 and dist_2d(thumb_tip, wrist) > dist_2d(thumb_mcp, wrist) * 1.12
+        thumb_up = thumb_tip[1] < thumb_mcp[1] - 0.035
+        thumb_down = thumb_tip[1] > thumb_mcp[1] + 0.035
 
         return {
             "wrist": wrist,
@@ -151,6 +153,8 @@ def calculate_dual_hand_gesture(coords):
             "pinky_tip": pinky_tip,
             "pinky_mcp": pinky_mcp,
             "thumb_ext": thumb_ext,
+            "thumb_up": thumb_up,
+            "thumb_down": thumb_down,
             "index_ext": index_ext,
             "middle_ext": middle_ext,
             "ring_ext": ring_ext,
@@ -170,8 +174,10 @@ def calculate_dual_hand_gesture(coords):
 
         # 1. HEART SHAPE (Thumbs & index tips touching, pinkies tucked)
         if (
-            thumb_tips_dist < 0.10
-            and index_tips_dist < 0.11
+            h1["thumb_ext"]
+            and h2["thumb_ext"]
+            and thumb_tips_dist < 0.08
+            and index_tips_dist < 0.08
             and not h1["pinky_ext"]
             and not h2["pinky_ext"]
             and wrist_dist < 0.34
@@ -195,9 +201,10 @@ def calculate_dual_hand_gesture(coords):
         ):
             return "THANK_YOU", 0.98
 
-        # 4. FRIEND (Both index fingers hooked / close, other fingers curled)
+        # 4. FRIEND (Both index fingers hooked / interlinked touching, thumbs separated)
         if (
-            index_tips_dist < 0.10
+            index_tips_dist < 0.085
+            and thumb_tips_dist > 0.085
             and h1["index_ext"]
             and h2["index_ext"]
             and not h1["ring_ext"]
@@ -207,6 +214,17 @@ def calculate_dual_hand_gesture(coords):
         ):
             return "FRIEND", 0.95
 
+        # 4b. WE (Both index fingers pointing together side-by-side)
+        if (
+            index_tips_dist >= 0.075
+            and index_tips_dist < 0.22
+            and h1["index_ext"]
+            and h2["index_ext"]
+            and not h1["middle_ext"]
+            and not h2["middle_ext"]
+        ):
+            return "WE", 0.96
+
         # 5. HELP (One fist resting on flat palm of other hand)
         h1_flat_h2_fist = all_h1_up and not h2["index_ext"] and not h2["middle_ext"]
         h2_flat_h1_fist = all_h2_up and not h1["index_ext"] and not h1["middle_ext"]
@@ -215,7 +233,9 @@ def calculate_dual_hand_gesture(coords):
 
         # 6. MORE (Both hands pinched, fingertips touching together)
         if (
-            index_tips_dist < 0.09
+            not h1["index_ext"]
+            and not h2["index_ext"]
+            and index_tips_dist < 0.09
             and thumb_tips_dist < 0.09
             and not h1["ring_ext"]
             and not h2["ring_ext"]
@@ -259,87 +279,97 @@ def calculate_dual_hand_gesture(coords):
     # ---------------------------------------------------------------------------
     # 2. Single-Hand Beginner Vocabulary (21 Points)
     # ---------------------------------------------------------------------------
-    # 12. I LOVE YOU (ASL ILY - Thumb + Index + Pinky)
-    if (
-        h1["thumb_ext"]
-        and h1["index_ext"]
-        and not h1["middle_ext"]
-        and not h1["ring_ext"]
-        and h1["pinky_ext"]
-    ):
-        return "LOVE", 0.97
+    else:
+        # 12. I LOVE YOU (ASL ILY - Thumb + Index + Pinky)
+        if (
+            h1["thumb_ext"]
+            and h1["index_ext"]
+            and not h1["middle_ext"]
+            and not h1["ring_ext"]
+            and h1["pinky_ext"]
+        ):
+            return "LOVE", 0.97
 
-    # 13. GOOD (OK Sign - Thumb & Index circle)
-    ok_dist = dist_2d(h1["thumb_tip"], h1["index_tip"])
-    if ok_dist < 0.06 and h1["middle_ext"] and h1["ring_ext"] and h1["pinky_ext"]:
-        return "GOOD", 0.96
+        # 13. GOOD (OK Sign - Thumb & Index circle)
+        ok_dist = dist_2d(h1["thumb_tip"], h1["index_tip"])
+        if ok_dist < 0.085 and h1["middle_ext"] and h1["ring_ext"]:
+            return "GOOD", 0.96
 
-    # 14. WATER (W sign - Index + Middle + Ring upright)
-    if (
-        h1["index_ext"]
-        and h1["middle_ext"]
-        and h1["ring_ext"]
-        and not h1["pinky_ext"]
-    ):
-        return "WATER", 0.95
+        # 14. WATER (W sign - Index + Middle + Ring upright)
+        if (
+            h1["index_ext"]
+            and h1["middle_ext"]
+            and h1["ring_ext"]
+            and not h1["pinky_ext"]
+        ):
+            return "WATER", 0.95
 
-    # 15. PEACE (V sign - Index + Middle upright)
-    if (
-        h1["index_ext"]
-        and h1["middle_ext"]
-        and not h1["ring_ext"]
-        and not h1["pinky_ext"]
-    ):
-        return "PEACE", 0.96
+        # 15. PEACE (V sign - Index + Middle upright)
+        if (
+            h1["index_ext"]
+            and h1["middle_ext"]
+            and not h1["ring_ext"]
+            and not h1["pinky_ext"]
+        ):
+            return "PEACE", 0.96
 
-    # 16. YES (Thumb Up)
-    if (
-        h1["thumb_ext"]
-        and not h1["index_ext"]
-        and not h1["middle_ext"]
-        and not h1["ring_ext"]
-        and not h1["pinky_ext"]
-        and h1["thumb_tip"][1] < h1["thumb_mcp"][1]
-    ):
-        return "YES", 0.97
+        # 16. YES (Thumb Up)
+        if (
+            h1["thumb_ext"]
+            and not h1["index_ext"]
+            and not h1["middle_ext"]
+            and not h1["ring_ext"]
+            and not h1["pinky_ext"]
+            and h1["thumb_tip"][1] < h1["index_mcp"][1] - 0.035
+        ):
+            return "YES", 0.97
 
-    # 17. NO (Thumb Down)
-    if (
-        h1["thumb_ext"]
-        and not h1["index_ext"]
-        and not h1["middle_ext"]
-        and not h1["ring_ext"]
-        and not h1["pinky_ext"]
-        and h1["thumb_tip"][1] > h1["thumb_mcp"][1] + 0.05
-    ):
-        return "NO", 0.95
+        # 17. NO (Thumb Down)
+        if (
+            h1["thumb_ext"]
+            and not h1["index_ext"]
+            and not h1["middle_ext"]
+            and not h1["ring_ext"]
+            and not h1["pinky_ext"]
+            and h1["thumb_tip"][1] > h1["thumb_mcp"][1] + 0.04
+        ):
+            return "NO", 0.95
 
-    # 18. HELLO (Open Palm Wave)
-    if (
-        h1["thumb_ext"]
-        and h1["index_ext"]
-        and h1["middle_ext"]
-        and h1["ring_ext"]
-        and h1["pinky_ext"]
-    ):
-        return "HELLO", 0.94
+        # 18. HELLO (Open Palm Wave)
+        if (
+            h1["thumb_ext"]
+            and h1["index_ext"]
+            and h1["middle_ext"]
+            and h1["ring_ext"]
+            and h1["pinky_ext"]
+        ):
+            return "HELLO", 0.94
 
-    # 19. BAD (Hand turned downward)
-    if (
-        h1["index_tip"][1] > h1["wrist"][1]
-        and h1["middle_tip"][1] > h1["wrist"][1]
-        and not h1["thumb_ext"]
-    ):
-        return "BAD", 0.92
+        # 19. BAD (Hand turned downward)
+        if (
+            h1["index_tip"][1] > h1["wrist"][1]
+            and h1["middle_tip"][1] > h1["wrist"][1]
+            and not h1["thumb_ext"]
+        ):
+            return "BAD", 0.92
 
-    # 20. SORRY (Closed Fist over chest)
-    if (
-        not h1["index_ext"]
-        and not h1["middle_ext"]
-        and not h1["ring_ext"]
-        and not h1["pinky_ext"]
-    ):
-        return "SORRY", 0.92
+        # 20. I / ME (Index finger pointing or pinky upright)
+        if (h1["index_ext"] and not h1["middle_ext"] and not h1["ring_ext"] and not h1["pinky_ext"]) or (h1["pinky_ext"] and not h1["index_ext"] and not h1["middle_ext"]):
+            return "I", 0.97
+
+        # 21. LIKE (Thumb & Middle finger pinching in 8-handshape)
+        if dist_2d(h1["thumb_tip"], h1["middle_tip"]) < 0.065 and h1["index_ext"] and h1["pinky_ext"]:
+            return "LIKE", 0.97
+
+        # 22. SORRY (Closed Fist over chest)
+        if (
+            not h1["index_ext"]
+            and not h1["middle_ext"]
+            and not h1["ring_ext"]
+            and not h1["pinky_ext"]
+            and not h1["thumb_up"]
+        ):
+            return "SORRY", 0.92
 
     return None
 
@@ -382,34 +412,28 @@ def main():
                 else:
                     predicted_word = str(pred_idx[0])
 
-                confidence = 1.0
+                confidence = 0.90
                 if hasattr(model, "predict_proba"):
                     try:
                         probabilities = model.predict_proba(features_for_model)[0]
-                        confidence = float(np.max(probabilities))
+                        max_p = float(np.max(probabilities))
+                        n_cls = len(probabilities)
+                        chance = 1.0 / max(1, n_cls)
+                        confidence = min(0.99, max(0.65, 0.50 + (max_p - chance) * 1.6))
                     except Exception:
                         pass
         except Exception as e:
             sys.stderr.write(f"[!] Model inference error: {e}\n")
 
-    # If heuristic recognized a specific dual-hand or gesture with high confidence, favor it
+    # If heuristic recognized a specific gesture or model gave no result
     if detected_gesture:
         heuristic_name, heuristic_conf = detected_gesture
-        # If model prediction matches or heuristic is dual-hand, prioritize heuristic
-        if len(coords) == 126 and heuristic_name in (
-            "NAMASTE",
-            "HEART",
-            "CLAP",
-            "STOP_CROSS",
-            "TOGETHER",
-            "OPEN_BOOK",
-            "DOUBLE_THUMBS_UP",
-            "DOUBLE_PEACE",
-            "WELCOME",
-        ):
+        if not predicted_word:
             predicted_word = heuristic_name
             confidence = heuristic_conf
-        elif not predicted_word or confidence < 0.65:
+        elif heuristic_name == predicted_word:
+            confidence = max(confidence, heuristic_conf)
+        elif confidence < 0.50:
             predicted_word = heuristic_name
             confidence = heuristic_conf
 

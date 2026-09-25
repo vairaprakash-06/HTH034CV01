@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BridgeSign Kiosk - Real-Time Sign Language Interpreter Terminal</title>
   
-  <!-- Modern Typography (Plus Jakarta Sans & JetBrains Mono) -->
+  <!-- Modern Typography (Plus Jakarta Sans, Noto Sans Tamil & JetBrains Mono) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+Tamil:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
 
   <!-- Pre-load MediaPipe Tasks Vision ESM Library via CDN -->
   <script type="module">
@@ -38,13 +38,20 @@
         </svg>
       </div>
       <div class="kiosk-titles">
-        <span class="kiosk-tagline">Citizen Services • Accessibility Terminal</span>
-        <h1 class="kiosk-title">Sign Language Bridge</h1>
+        <span class="kiosk-tagline" id="kiosk_tagline">Citizen Services • Accessibility Terminal</span>
+        <h1 class="kiosk-title" id="kiosk_title">Sign Language Bridge</h1>
       </div>
     </div>
 
     <div class="kiosk-station-meta">
-      <span class="kiosk-station-id">Counter #04 • Public Service Hub</span>
+      <!-- WORKABLE LANGUAGE SETTINGS SWITCHER (ENGLISH & TAMIL) -->
+      <div class="kiosk-lang-switcher" id="kiosk_lang_switcher" role="group" aria-label="Language Selector / மொழி தேர்வு">
+        <span class="lang-icon" aria-hidden="true">🌐</span>
+        <button type="button" class="lang-btn active" id="btn_lang_en" data-lang="en" title="Switch to English">English</button>
+        <button type="button" class="lang-btn" id="btn_lang_ta" data-lang="ta" title="தமிழுக்கு மாற்றவும்">தமிழ்</button>
+      </div>
+
+      <span class="kiosk-station-id" id="kiosk_station_id">Counter #04 • Public Service Hub</span>
       <div id="kiosk_clock" class="kiosk-clock">--:--:--</div>
       <div id="backend_badge" class="kiosk-status-badge standby">
         <span class="kiosk-status-dot"></span>
@@ -60,7 +67,7 @@
     <section class="viewport-panel" aria-label="Webcam Video Feed and Hand Tracking Viewport">
       <div class="panel-header">
         <div class="panel-header-left">
-          <span class="panel-title">Dual-Hand Vision Viewport</span>
+          <span class="panel-title" id="panel_title">Dual-Hand Vision Viewport</span>
           <span id="reticle_badge" class="reticle-badge searching">Awaiting Hands</span>
           <div class="hands-pill-group">
             <span id="hand1_indicator" class="hand-chip offline">Hand 1: Cyan (21 pts)</span>
@@ -102,7 +109,7 @@
               <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
               <line x1="12" y1="22.08" x2="12" y2="12"></line>
             </svg>
-            <span>Mirror</span>
+            <span id="btn_mirror_text">Mirror</span>
           </button>
 
           <button id="btn_toggle_landmarks" class="kiosk-btn active" title="Toggle Skeletal Mesh">
@@ -112,7 +119,7 @@
               <line x1="4.93" y1="4.93" x2="9.17" y2="9.17"></line>
               <line x1="14.83" y1="14.83" x2="19.07" y2="19.07"></line>
             </svg>
-            <span>Landmarks</span>
+            <span id="btn_landmarks_text">Landmarks</span>
           </button>
 
           <button id="btn_toggle_pip" class="kiosk-btn" title="Keep Camera Viewable Throughout Interaction (Picture-in-Picture)">
@@ -136,7 +143,7 @@
       <!-- HERO PREDICTION CARD -->
       <section class="prediction-card">
         <div class="card-label">
-          <span>Real-Time Gesture Calculation</span>
+          <span id="calc_card_title">Real-Time Gesture Calculation</span>
           <span id="prediction_rate_badge" style="color: var(--accent-cyan); font-family: var(--font-mono);">42-Point Real-Time Vision</span>
         </div>
 
@@ -162,20 +169,23 @@
         <div class="chatbox-header">
           <div class="chatbox-header-title">
             <span class="chat-status-dot"></span>
-            <span>Real-Time Gesture Chatbox</span>
+            <span id="chatbox_title">Real-Time Gesture Chatbox</span>
           </div>
           <div class="button-group">
+            <button id="btn_toggle_lang" class="kiosk-btn" title="Toggle Language: English / தமிழ்">
+              <span id="btn_toggle_lang_text">🌐 தமிழ்</span>
+            </button>
             <button id="btn_toggle_tts" class="kiosk-btn active" title="Toggle Text-to-Speech Readout">
-              <span>🔊 Speech ON</span>
+              <span id="btn_toggle_tts_text">🔊 Speech ON</span>
             </button>
             <button id="btn_toggle_autosend" class="kiosk-btn active" title="Auto-post gesture when held for 1.2s">
-              <span>⚡ Auto-Send</span>
+              <span id="btn_toggle_autosend_text">⚡ Auto-Send</span>
             </button>
             <button id="btn_export_chat" class="kiosk-btn" title="Download Chat Conversation">
-              <span>📥 Export</span>
+              <span id="btn_export_chat_text">📥 Export</span>
             </button>
             <button id="btn_clear_chat" class="kiosk-btn" title="Clear Chat Messages">
-              <span>🗑️ Clear</span>
+              <span id="btn_clear_chat_text">🗑️ Clear</span>
             </button>
           </div>
         </div>
@@ -183,7 +193,7 @@
         <!-- Real-Time Gesture Staging Banner (Fills progress bar when holding gesture) -->
         <div id="gesture_staging_bar" class="gesture-staging-bar">
           <div class="staging-info">
-            <span class="staging-tag">ACTIVE GESTURE:</span>
+            <span class="staging-tag" id="staging_tag">ACTIVE GESTURE:</span>
             <strong id="staging_gesture_name">Waiting for sign...</strong>
             <span id="staging_conf_badge" class="staging-conf">--%</span>
           </div>
@@ -220,16 +230,16 @@
           </div>
           <div class="button-group">
             <button id="btn_send_chat" class="kiosk-btn active send-btn" title="Send to Chatbox">
-              <span>Send 🚀</span>
+              <span id="btn_send_chat_text">Send 🚀</span>
             </button>
             <button id="btn_space" class="kiosk-btn" title="Add Space">
-              <span>Space</span>
+              <span id="btn_space_text">Space</span>
             </button>
             <button id="btn_backspace" class="kiosk-btn" title="Backspace">
               <span>⌫</span>
             </button>
             <button id="btn_speak_transcript" class="kiosk-btn" title="Speak Latest Message">
-              <span>🔊 Speak</span>
+              <span id="btn_speak_text">🔊 Speak</span>
             </button>
           </div>
         </div>
@@ -247,7 +257,7 @@
         </div>
 
         <div class="card-label" style="margin-bottom: 0;">
-          <span>126-Coordinate Feature Payload (42 Points × 3D)</span>
+          <span id="telemetry_title">126-Coordinate Feature Payload (42 Points × 3D)</span>
           <span id="payload_status" style="font-family: var(--font-mono); color: var(--text-muted);">Idle</span>
         </div>
 
@@ -263,7 +273,7 @@
   <!-- KIOSK FOOTER -->
   <footer class="kiosk-footer">
     <div class="footer-compliance">
-      <span>ADA & WCAG 2.1 Compliant Service Interface</span>
+      <span id="footer_compliance">ADA & WCAG 2.1 Compliant Service Interface</span>
       <span>•</span>
       <span>Express Backend: <code style="color: var(--accent-cyan);">localhost:3000/predict</code></span>
     </div>
